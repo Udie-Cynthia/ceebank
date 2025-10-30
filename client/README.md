@@ -17,3 +17,5 @@ CI: trigger client build (correct file path)
 CI: debug context vs Dockerfile
 
 CI: trigger client build after devDeps fix
+
+CI: trigger after lockfile refresh
