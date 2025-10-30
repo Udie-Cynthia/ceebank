@@ -25,12 +25,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push (client)
+            - name: Build and push (client)
         uses: docker/build-push-action@v6
         with:
-          context: ./client
+          context: .
+          file: ./client/Dockerfile
           push: true
           tags: |
             udiecynthia/ceebank:client-dev
             udiecynthia/ceebank:client-${{ github.sha }}
+
 
