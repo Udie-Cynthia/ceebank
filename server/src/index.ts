@@ -1,6 +1,7 @@
 // server/src/index.ts
 // Minimal Express server entry for CeeBank API with env helper.
 
+import infoRouter from "./routes/info";
 import express from "express";
 import { env, warnIfInsecure } from "./config/env";
 
@@ -8,6 +9,7 @@ const app = express();
 
 // Parse JSON bodies for API requests
 app.use(express.json());
+app.use("/api/info", infoRouter);
 
 // Simple health check endpoint for uptime monitoring and ECS target health
 app.get("/health", (_req, res) => {
