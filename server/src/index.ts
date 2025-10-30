@@ -1,8 +1,8 @@
 // server/src/index.ts
-// Minimal Express server entry for CeeBank API.
-// NOTE: We haven’t installed dependencies yet; TypeScript may show red squiggles for now.
+// Minimal Express server entry for CeeBank API with env helper.
 
 import express from "express";
+import { env, warnIfInsecure } from "./config/env";
 
 const app = express();
 
@@ -14,13 +14,13 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "CeeBank API" });
 });
 
-// Pick the port from the environment (ECS/containers) or default locally
-const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+// Warn if placeholder/missing secrets in non-prod
+warnIfInsecure();
 
-// Start the HTTP server
-app.listen(PORT, () => {
+// Start the HTTP server on configured port
+app.listen(env.PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`CeeBank API listening on http://localhost:${PORT}`);
+  console.log(`CeeBank API listening on http://localhost:${env.PORT}`);
 });
 
 export default app;
