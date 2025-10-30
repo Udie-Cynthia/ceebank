@@ -13,3 +13,5 @@ CI: trigger client image build
 CI: trigger client build (context fix)
 
 CI: trigger client build (correct file path)
+
+CI: debug context vs Dockerfile
