@@ -28,11 +28,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./client
-          file: Client.Dockerfile
+          file: Dockerfile
           push: true
           tags: |
             udiecynthia/ceebank:client-dev
             udiecynthia/ceebank:client-${{ github.sha }}
+
 
 
 
