@@ -1,0 +1,12 @@
+{
+  "name": "ceebank-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CeeBank web UI (React + Vite). Files will be added step-by-step.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  }
+}
