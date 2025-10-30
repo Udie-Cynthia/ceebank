@@ -9,6 +9,18 @@ const app = express();
 
 // Parse JSON bodies for API requests
 app.use(express.json());
+// Allow browser app (Vite on 5173) to call this API (CORS)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use("/api/info", infoRouter);
 
 // Simple health check endpoint for uptime monitoring and ECS target health
