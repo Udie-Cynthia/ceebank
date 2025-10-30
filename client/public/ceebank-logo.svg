@@ -1,0 +1,23 @@
+﻿<!-- CeeBank minimal logo: rounded shield + "CB" monogram -->
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40" role="img" aria-labelledby="title">
+  <title>CeeBank</title>
+  <!-- Shield background -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <rect x="4" y="4" rx="8" ry="8" width="32" height="32" fill="url(#g)"/>
+    <!-- Monogram: C and B -->
+    <path d="M28 20a8 8 0 1 1-8-8" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <path d="M22 14v12m0 0h4a3 3 0 0 0 0-6h-4m0 6h4a3 3 0 0 0 0-6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Wordmark -->
+  <g transform="translate(46,28)">
+    <text x="0" y="0" font-family="Inter, Segoe UI, system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#0f172a" letter-spacing="0.5">
+      Cee<tspan fill="#2563eb">Bank</tspan>
+    </text>
+  </g>
+</svg>
