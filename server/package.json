@@ -5,9 +5,19 @@
   "description": "CeeBank API (Node.js + Express). TypeScript and Prisma will be added step-by-step.",
   "license": "MIT",
   "scripts": {
+    "dev": "ts-node-dev --respawn --transpileOnly src/index.ts",
+    "build": "tsc",
     "start": "node dist/index.js",
-    "build": "echo \"(placeholder) build step will be added\"",
-    "dev": "echo \"(placeholder) dev server will be added\"",
     "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
   }
 }
+
