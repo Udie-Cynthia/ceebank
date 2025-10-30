@@ -2,9 +2,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install deps using lockfile if present (include dev deps)
+# Install deps using lockfile if present
 COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install --include=dev; fi
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
 
 
 # Copy source and build
