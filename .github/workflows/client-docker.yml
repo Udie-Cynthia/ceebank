@@ -12,8 +12,19 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (full)
         uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+
+      - name: Show repo tree (top level)
+        run: |
+          pwd
+          ls -la
+          echo "----- client dir -----"
+          ls -la client
+          echo "----- client Dockerfile head -----"
+          sed -n '1,120p' client/Dockerfile || true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -24,22 +35,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push (client)
+      - name: Build and push (client, context=./client, default Dockerfile)
         uses: docker/build-push-action@v6
         with:
           context: ./client
-          file: Dockerfile
+          # NOTE: omit "file" so Docker uses ./client/Dockerfile by default
           push: true
           tags: |
             udiecynthia/ceebank:client-dev
             udiecynthia/ceebank:client-${{ github.sha }}
-
-
-
-
-
-
-
-
-         
-
