@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  server:
+    # Local build context (handy for future local use)
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    # If you prefer pulling from Docker Hub in the future, you can swap this:
+    # image: udiecynthia/ceebank:server-dev
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      # Example placeholders — real secrets go in .env (not committed)
+      JWT_ACCESS_SECRET: change-me-access
+      JWT_REFRESH_SECRET: change-me-refresh
+      JWT_ACCESS_EXPIRES: 15m
+      JWT_REFRESH_EXPIRES: 7d
+      DATABASE_URL: postgres://USER:PASSWORD@HOST:5432/DBNAME
+    ports:
+      - "4000:4000"
+    depends_on: []
+    restart: unless-stopped
+
+  client:
+    # Local dev build (Vite) for future use
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./client:/app
+    command: sh -c "npm ci || npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      NODE_ENV: development
+    depends_on: []
+    restart: unless-stopped
+
+networks:
+  default:
+    name: ceebank-net
