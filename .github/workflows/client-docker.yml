@@ -15,18 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push client image
-        working-directory: client
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          docker build -f Dockerfile -t udiecynthia/ceebank:client-dev .
-          docker tag udiecynthia/ceebank:client-dev udiecynthia/ceebank:client-${SHORT_SHA}
-          docker push udiecynthia/ceebank:client-dev
-          docker push udiecynthia/ceebank:client-${SHORT_SHA}
+      - name: Build and push (client)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          file: Dockerfile
+          push: true
+          tags: |
+            udiecynthia/ceebank:client-dev
+            udiecynthia/ceebank:client-${{ github.sha }}
+
+         
 
