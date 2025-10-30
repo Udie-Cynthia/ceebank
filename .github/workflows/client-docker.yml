@@ -21,10 +21,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build client image (explicit Dockerfile path)
+      - name: Build and push client image
+        working-directory: client
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          docker build -f client/Dockerfile -t udiecynthia/ceebank:client-dev client
+          docker build -f Dockerfile -t udiecynthia/ceebank:client-dev .
           docker tag udiecynthia/ceebank:client-dev udiecynthia/ceebank:client-${SHORT_SHA}
           docker push udiecynthia/ceebank:client-dev
           docker push udiecynthia/ceebank:client-${SHORT_SHA}
+
