@@ -27,12 +27,13 @@ jobs:
       - name: Build and push (client)
         uses: docker/build-push-action@v6
         with:
-          context: ./client
-          file: Dockerfile
+          context: .
+          file: ./client/Client.Dockerfile
           push: true
           tags: |
             udiecynthia/ceebank:client-dev
             udiecynthia/ceebank:client-${{ github.sha }}
+
 
 
 
