@@ -21,3 +21,5 @@ CI: trigger client build after devDeps fix
 CI: trigger after lockfile refresh
 
 CI: trigger after lockfile refresh
+
+CI: rebuild client after adding routes
