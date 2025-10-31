@@ -24,12 +24,21 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Show server tree (debug)
+        run: |
+          echo "::group::tree server"
+          ls -la server
+          echo "::group::server/Dockerfile (head)"
+          sed -n '1,120p' server/Dockerfile || true
+          echo "::endgroup::"
+
       - name: Build and push (server)
         uses: docker/build-push-action@v6
         with:
-          context: ./server       # <- BUILD FROM server/
-          file: Dockerfile        # <- server/Dockerfile inside that context
+          context: .                 # build context is the repo root
+          file: ./server/Dockerfile  # explicit path to the server Dockerfile
           push: true
           tags: |
             udiecynthia/ceebank:server-dev
             udiecynthia/ceebank:server-${{ github.sha }}
+
