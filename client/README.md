@@ -27,3 +27,5 @@ CI: rebuild client after adding routes
 CI: rebuild client for login-first flow
 
 CI: rebuild after ApiInfo fix
+
+CI: rebuild with DashboardLive
