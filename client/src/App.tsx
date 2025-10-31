@@ -14,6 +14,7 @@ import {
 } from "react-router-dom";
 import ApiInfo from "./components/ApiInfo";
 import RequireAuth from "./components/RequireAuth";
+import DashboardLive from "./components/DashboardLive";
 
 const navStyle: React.CSSProperties = {
   display: "flex",
@@ -373,22 +374,15 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth>
-              <DashboardPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <HomePage />
-            </RequireAuth>
-          }
-        />
+<Route
+  path="/dashboard"
+  element={
+    <RequireAuth>
+      <DashboardLive />
+    </RequireAuth>
+  }
+/>
+
 
         {/* Fallback: if unknown route, send to login */}
         <Route path="*" element={<Navigate to="/login" replace />} />
