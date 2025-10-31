@@ -47,3 +47,5 @@ CI: rebuild after adding styles.css
 CI: rebuild styled Home tiles
 
 CI: rebuild styled dashboard
+
+CI: rebuild home page and navbar style
