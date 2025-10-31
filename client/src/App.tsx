@@ -38,10 +38,10 @@ const linkStyle: React.CSSProperties = {
 const activeStyle: React.CSSProperties = { background: "#e2e8f0" };
 
 function Navbar() {
-  const nav = useNavigate();
-  const [authed, setAuthed] = React.useState(
-    !!sessionStorage.getItem("accessToken")
-  );
+const [authed, setAuthed] = React.useState(
+  !!(sessionStorage.getItem("accessToken") || localStorage.getItem("accessToken"))
+);
+
 
   // Keep button state in sync if tokens change elsewhere
   React.useEffect(() => {
@@ -52,12 +52,17 @@ function Navbar() {
     return () => clearInterval(i);
   }, []);
 
-  const onLogout = () => {
-    sessionStorage.removeItem("accessToken");
-    sessionStorage.removeItem("refreshToken");
-    setAuthed(false);
-    nav("/login", { replace: true });
-  };
+const onLogout = () => {
+  sessionStorage.removeItem("accessToken");
+  sessionStorage.removeItem("refreshToken");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("displayName");
+  localStorage.removeItem("email");
+  setAuthed(false);
+  nav("/login", { replace: true });
+};
+
 
   return (
     <nav style={navStyle}>
@@ -212,7 +217,7 @@ function LoginPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch("https://ceebank.online/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -223,6 +228,14 @@ function LoginPage() {
       // Mock store tokens (DO NOT do this in production)
       sessionStorage.setItem("accessToken", json.accessToken);
       sessionStorage.setItem("refreshToken", json.refreshToken);
+      localStorage.setItem("accessToken", json.accessToken);
+      localStorage.setItem("refreshToken", json.refreshToken);
+
+      // Save display name for Home greeting (fallback to email prefix)
+      const displayName =
+        (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
+      localStorage.setItem("displayName", displayName || "Cynthia");
+      localStorage.setItem("email", email);
 
       const to = location.state?.from || "/dashboard";
       setMessage("Login successful (mock). Redirecting…");
@@ -289,6 +302,7 @@ function LoginPage() {
     </Page>
   );
 }
+
 
 function DashboardPage() {
   // We'll wire this to live API data next step.
