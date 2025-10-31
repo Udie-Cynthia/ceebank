@@ -13,3 +13,5 @@ CI: rebuild after tsconfig fix
 CI: rebuild with Dockerfile + debug ls
 
 CI: trigger server build after context fix
+
+CI: trigger after adding transactions route
