@@ -17,3 +17,5 @@ CI: trigger server build after context fix
 CI: trigger after adding transactions route
 
 CI: trigger server build after Dockerfile/workflow fix
+
+CI: trigger server build after Dockerfile/.dockerignore fix
