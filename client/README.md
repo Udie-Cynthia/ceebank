@@ -23,3 +23,5 @@ CI: trigger after lockfile refresh
 CI: trigger after lockfile refresh
 
 CI: rebuild client after adding routes
+
+CI: rebuild client for login-first flow
