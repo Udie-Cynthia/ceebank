@@ -15,6 +15,7 @@ import {
 import ApiInfo from "./components/ApiInfo";
 import RequireAuth from "./components/RequireAuth";
 import DashboardLive from "./components/DashboardLive";
+import HomeTiles from "./components/HomeTiles";
 
 const navStyle: React.CSSProperties = {
   display: "flex",
@@ -166,13 +167,13 @@ function Page({
 function HomePage() {
   return (
     <Page title="Welcome to CeeBank">
-      <p style={{ color: "#334155" }}>
-        Secure, simple, and modern digital banking for demos and learning.
-      </p>
+      <p style={{ color: "#334155" }}>Secure, simple, and modern digital banking for demos and learning.</p>
+      <HomeTiles />
       <ApiInfo />
     </Page>
   );
 }
+
 
 function AboutPage() {
   return (
