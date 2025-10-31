@@ -1,6 +1,6 @@
 // client/src/App.tsx
-// Clean, login-first app with guarded routes, solid redirect after login,
-// persistent tokens, Home greeting + deterministic 10-digit account number.
+// Clean login-first app with guarded routes, persistent tokens,
+// Home greeting (external component), styled dashboard.
 
 import React from "react";
 import {
@@ -13,15 +13,10 @@ import {
   useLocation,
 } from "react-router-dom";
 
-// Existing components in your repo:
 import ApiInfo from "./components/ApiInfo";
-import HomePage from "./components/HomePage";
 import RequireAuth from "./components/RequireAuth";
-import HomeTiles from "./components/HomeTiles";
+import HomePage from "./components/HomePage";      // use external Home
 import DashboardLive from "./components/DashboardLive";
-// Optional tiny visual debug (shows Auth: ON/OFF). If you created it earlier, keep.
-// If you don't have it, you may delete the import and <TokenLamp /> line below.
-// import TokenLamp from "./components/TokenLamp";
 
 const navStyle: React.CSSProperties = {
   display: "flex",
@@ -41,6 +36,7 @@ const linkStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 8,
 };
+
 const activeStyle: React.CSSProperties = { background: "#e2e8f0" };
 
 function Navbar() {
@@ -52,7 +48,6 @@ function Navbar() {
     )
   );
 
-  // keep button state in sync with storage changes
   React.useEffect(() => {
     const i = setInterval(
       () =>
@@ -82,8 +77,9 @@ function Navbar() {
     <nav style={navStyle}>
       <a
         href="/"
-        style={{ display: "inline-flex", alignItems: "center" }}
+        className="logo"
         aria-label="CeeBank Home"
+        style={{ display: "inline-flex", alignItems: "center" }}
       >
         <img src="/ceebank-logo.svg" alt="CeeBank" width={160} height={40} />
       </a>
@@ -143,14 +139,9 @@ function Navbar() {
       {authed && (
         <button
           onClick={onLogout}
+          className="btn-danger"
           style={{
             marginLeft: 12,
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid #ef4444",
-            background: "#ef4444",
-            color: "white",
-            cursor: "pointer",
           }}
         >
           Logout
@@ -170,14 +161,14 @@ function Page({
   return (
     <main
       style={{
-        fontFamily: "system-ui, Segoe UI, Inter, Arial, sans-serif",
         padding: "2rem",
-        maxWidth: 960,
+        maxWidth: 1024,
         margin: "0 auto",
+        fontFamily: "system-ui, Segoe UI, Inter, Arial, sans-serif",
       }}
     >
-<h1 style={{ color: "#2563eb", fontWeight: 700, margin: 0 }}>CeeBank</h1>
-     Get {children}
+      <h1 style={{ marginTop: 0 }}>{title}</h1>
+      {children}
     </main>
   );
 }
@@ -188,8 +179,8 @@ function AboutPage() {
       <p style={{ lineHeight: 1.7 }}>
         CeeBank is a modern online banking demo founded by{" "}
         <strong>Cynthia Udie</strong> (DevOps, Cloud Security Engineer, and Web
-        Developer). It showcases full-stack development, containerization,
-        CI/CD, and AWS deployment.
+        Developer). It showcases full-stack development, containerization, CI/CD,
+        and AWS deployment.
       </p>
       <ul style={{ lineHeight: 1.9, paddingLeft: 18 }}>
         <li>
@@ -202,35 +193,6 @@ function AboutPage() {
         Contact: <a href="mailto:udiecynthia@gmail.com">udiecynthia@gmail.com</a>{" "}
         • LinkedIn: linkedin.com/in/cynthia-udie-68936135b
       </p>
-    </Page>
-  );
-}
-
-
-  return (
-    <Page title={`Hello ${name}, welcome back`}>
-      <div
-        style={{
-          padding: 16,
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          background: "#fff",
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ color: "#64748b", fontSize: 14, marginBottom: 6 }}>
-          Account Number
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: 1 }}>
-          {acct}
-        </div>
-      </div>
-
-      <p style={{ color: "#334155" }}>
-        Secure, simple, and modern digital banking for demos and learning.
-      </p>
-
-      <HomeTiles />
       <ApiInfo />
     </Page>
   );
@@ -257,19 +219,19 @@ function LoginPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
 
-      // Store tokens in both storages (mock!)
+      // store tokens (mock)
       sessionStorage.setItem("accessToken", json.accessToken);
       sessionStorage.setItem("refreshToken", json.refreshToken);
       localStorage.setItem("accessToken", json.accessToken);
       localStorage.setItem("refreshToken", json.refreshToken);
 
-      // Save display name + email for Home greeting
+      // name for Home
       const displayName =
         (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
       localStorage.setItem("displayName", displayName || "Cynthia");
       localStorage.setItem("email", email);
 
-      // Immediate redirect + hard fallback
+      // immediate redirect + hard fallback
       const to = location.state?.from || "/dashboard";
       nav(to, { replace: true });
       setTimeout(() => (window.location.href = to), 300);
@@ -284,54 +246,42 @@ function LoginPage() {
 
   return (
     <Page title="Login">
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 420 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Email</span>
+      <form onSubmit={onSubmit} className="grid" style={{ maxWidth: 420 }}>
+        <label className="grid">
+          <span className="kicker">Email</span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             type="email"
             placeholder="you@example.com"
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
           />
         </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Password</span>
+        <label className="grid">
+          <span className="kicker">Password</span>
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             type="password"
             placeholder="********"
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
           />
         </label>
-        <button
-          disabled={loading}
-          type="submit"
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #0ea5e9",
-            background: "#0ea5e9",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
+        <button disabled={loading} type="submit">
           {loading ? "Signing in…" : "Sign in"}
         </button>
         {message && (
           <p
             style={{
               color: message.startsWith("Login successful") ? "#16a34a" : "#dc2626",
+              margin: 0,
             }}
           >
             {message}
           </p>
         )}
       </form>
-      <p style={{ marginTop: 16, color: "#64748b" }}>
+      <p style={{ marginTop: 16 }} className="text-muted">
         Tip: any email+password works (mock backend).
       </p>
     </Page>
@@ -342,8 +292,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <Navbar />
-      {/* Optional: TokenLamp shows Auth: ON/OFF if you kept it */}
-      {/* <TokenLamp /> */}
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
