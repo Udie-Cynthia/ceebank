@@ -43,3 +43,5 @@ CI: rebuild after making Home public for debugging
 CI: rebuild after adding global styles
 
 CI: rebuild after adding styles.css
+
+CI: rebuild styled Home tiles
