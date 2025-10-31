@@ -29,8 +29,8 @@ jobs:
       - name: Build and push (server)
         uses: docker/build-push-action@v6
         with:
-          context: ./server
-          file: ./server/Dockerfile
+          context: ./server          # << build context is the server folder
+          file: Dockerfile           # << use server/Dockerfile inside that context
           push: true
           tags: |
             udiecynthia/ceebank:server-dev
