@@ -225,17 +225,17 @@ function LoginPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
 
-      // Mock store tokens (DO NOT do this in production)
-      sessionStorage.setItem("accessToken", json.accessToken);
-      sessionStorage.setItem("refreshToken", json.refreshToken);
-      localStorage.setItem("accessToken", json.accessToken);
-      localStorage.setItem("refreshToken", json.refreshToken);
+// Mock store tokens (DO NOT do this in production)
+sessionStorage.setItem("accessToken", json.accessToken);
+sessionStorage.setItem("refreshToken", json.refreshToken);
+localStorage.setItem("accessToken", json.accessToken);
+localStorage.setItem("refreshToken", json.refreshToken);
 
-      // Save display name for Home greeting (fallback to email prefix)
-      const displayName =
-        (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
-      localStorage.setItem("displayName", displayName || "Cynthia");
-      localStorage.setItem("email", email);
+// Save display name for Home greeting (fallback to email prefix)
+const displayName = (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
+localStorage.setItem("displayName", displayName || "Cynthia");
+localStorage.setItem("email", email);
+
 
       const to = location.state?.from || "/dashboard";
       setMessage("Login successful (mock). Redirecting…");
