@@ -5,6 +5,8 @@ import infoRouter from "./routes/info";
 import express from "express";
 import { env, warnIfInsecure } from "./config/env";
 import authRouter from "./routes/auth";
+import transactionsRouter from "./routes/transactions";
+
 
 
 const app = express();
@@ -12,6 +14,7 @@ const app = express();
 // Parse JSON bodies for API requests
 app.use(express.json());
 // Allow browser app (Vite on 5173) to call this API (CORS)
+app.use("/api", transactionsRouter);
 app.use("/api/auth", authRouter);
 
 app.use((req, res, next) => {
