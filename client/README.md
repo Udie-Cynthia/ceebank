@@ -33,3 +33,5 @@ CI: rebuild with DashboardLive
 CI: rebuild after adding DashboardLive
 
 CI: rebuild with HomeTiles
+
+CI: rebuild after auth persistence fix
