@@ -51,3 +51,5 @@ CI: rebuild styled dashboard
 CI: rebuild home page and navbar style
 
 CI: rebuild after HomePage dedupe
+
+CI: rebuild after App.tsx fix
