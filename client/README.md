@@ -45,3 +45,5 @@ CI: rebuild after adding global styles
 CI: rebuild after adding styles.css
 
 CI: rebuild styled Home tiles
+
+CI: rebuild styled dashboard
