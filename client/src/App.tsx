@@ -1,6 +1,7 @@
 // client/src/App.tsx
 // Clean, login-first app with guarded routes, persistent tokens,
 // styled Login, external HomePage (greeting + tiles), and DashboardLive.
+// Navbar includes "Switch Account" so Login is always reachable.
 
 import React from "react";
 import {
@@ -18,7 +19,7 @@ import RequireAuth from "./components/RequireAuth";
 import HomePage from "./components/HomePage";
 import DashboardLive from "./components/DashboardLive";
 
-// ---------- Nav styles ----------
+/* ---------- Nav styles ---------- */
 const navStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -40,7 +41,7 @@ const linkStyle: React.CSSProperties = {
 
 const activeStyle: React.CSSProperties = { background: "#e2e8f0" };
 
-// ---------- Navbar ----------
+/* ---------- Navbar ---------- */
 function Navbar() {
   const nav = useNavigate();
   const [authed, setAuthed] = React.useState(
@@ -50,7 +51,7 @@ function Navbar() {
     )
   );
 
-  // keep button state in sync with storage changes
+  // Keep the auth indicator in sync with storage
   React.useEffect(() => {
     const i = setInterval(
       () =>
@@ -109,18 +110,19 @@ function Navbar() {
             >
               Home
             </NavLink>
+            {/* Always-available way to reach Login while signed in */}
+            <NavLink
+              to="/login"
+              title="Go to login to switch account"
+              style={({ isActive }) => ({
+                ...linkStyle,
+                ...(isActive ? activeStyle : {}),
+              })}
+            >
+              Switch Account
+            </NavLink>
           </>
         )}
-
-        <NavLink
-          to="/about"
-          style={({ isActive }) => ({
-            ...linkStyle,
-            ...(isActive ? activeStyle : {}),
-          })}
-        >
-          About
-        </NavLink>
 
         {!authed && (
           <NavLink
@@ -133,6 +135,16 @@ function Navbar() {
             Login
           </NavLink>
         )}
+
+        <NavLink
+          to="/about"
+          style={({ isActive }) => ({
+            ...linkStyle,
+            ...(isActive ? activeStyle : {}),
+          })}
+        >
+          About
+        </NavLink>
       </div>
 
       <span style={{ marginLeft: "auto", color: "#64748b", fontSize: 14 }}>
@@ -148,7 +160,7 @@ function Navbar() {
   );
 }
 
-// ---------- Simple page wrapper ----------
+/* ---------- Page wrapper ---------- */
 function Page({
   title,
   children,
@@ -171,33 +183,58 @@ function Page({
   );
 }
 
-// ---------- About ----------
+/* ---------- About (richer content + © All Rights Reserved – 2025) ---------- */
 function AboutPage() {
   return (
     <Page title="About CeeBank">
       <p style={{ lineHeight: 1.7 }}>
-        CeeBank is a modern online banking demo founded by{" "}
-        <strong>Cynthia Udie</strong> (DevOps, Cloud Security Engineer, and Web
-        Developer). It showcases full-stack development, containerization, CI/CD,
-        and AWS deployment.
+        <strong>CeeBank</strong> is a modern online banking demo founded by{" "}
+        <strong>Cynthia Udie</strong> — DevOps & Cloud Security Engineer and Web
+        Developer — showcasing clean architecture, secure patterns, containerization,
+        CI/CD, and AWS deployment best practices.
       </p>
-      <ul style={{ lineHeight: 1.9, paddingLeft: 18 }}>
-        <li>
-          Custom domain: <code>ceebank.online</code> with HTTPS
-        </li>
-        <li>Frontend: React (Vite) • Backend: Node.js + Express</li>
-        <li>Deployment: Docker, GitHub Actions, AWS EC2/ECS</li>
-      </ul>
-      <p>
-        Contact: <a href="mailto:udiecynthia@gmail.com">udiecynthia@gmail.com</a>{" "}
-        • LinkedIn: linkedin.com/in/cynthia-udie-68936135b
+
+      <div className="card" style={{ margin: "12px 0", padding: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Highlights</h3>
+        <ul style={{ lineHeight: 1.9, paddingLeft: 18, margin: 0 }}>
+          <li>Custom domain <code>ceebank.online</code> with HTTPS (Certbot/Let’s Encrypt)</li>
+          <li>Frontend: React (Vite) with clean, modern FinTech styling</li>
+          <li>Backend: Node.js + Express with JWT-ready structure</li>
+          <li>Containerized: Docker images built & pushed via GitHub Actions</li>
+          <li>Deployed: Nginx reverse proxy on AWS EC2 (ECS-ready)</li>
+        </ul>
+      </div>
+
+      <div className="card" style={{ margin: "12px 0", padding: 16 }}>
+        <h3 style={{ marginTop: 0 }}>About Cynthia</h3>
+        <p style={{ marginTop: 6 }}>
+          Cynthia builds secure, scalable cloud workloads and streamlines delivery with
+          CI/CD. This project demonstrates full-stack craftsmanship — from resilient API
+          design and frontend polish to container builds and automated deployments.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          <strong>Profiles & Contact:</strong> LinkedIn:{" "}
+          <a
+            href="https://linkedin.com/in/cynthia-udie-68936135b"
+            target="_blank"
+            rel="noreferrer"
+          >
+            linkedin.com/in/cynthia-udie-68936135b
+          </a>{" "}
+          • Email: <a href="mailto:udiecynthia@gmail.com">udiecynthia@gmail.com</a>
+        </p>
+      </div>
+
+      <p className="text-muted" style={{ marginTop: 12 }}>
+        © All Rights Reserved – 2025
       </p>
+
       <ApiInfo />
     </Page>
   );
 }
 
-// ---------- Login (styled, redirect-safe) ----------
+/* ---------- Login (styled, redirect-safe) ---------- */
 function LoginPage() {
   const nav = useNavigate();
   const location = useLocation() as any;
@@ -219,19 +256,19 @@ function LoginPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
 
-      // store tokens (mock)
+      // Store tokens (mock)
       sessionStorage.setItem("accessToken", json.accessToken);
       sessionStorage.setItem("refreshToken", json.refreshToken);
       localStorage.setItem("accessToken", json.accessToken);
       localStorage.setItem("refreshToken", json.refreshToken);
 
-      // name for Home
+      // Save name/email for Home greeting
       const displayName =
         (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
       localStorage.setItem("displayName", displayName || "Cynthia");
       localStorage.setItem("email", email);
 
-      // immediate redirect + hard fallback
+      // Immediate redirect + hard fallback
       const to = location.state?.from || "/dashboard";
       nav(to, { replace: true });
       setTimeout(() => (window.location.href = to), 300);
@@ -317,7 +354,7 @@ function LoginPage() {
   );
 }
 
-// ---------- App ----------
+/* ---------- App ---------- */
 export default function App() {
   return (
     <BrowserRouter>
