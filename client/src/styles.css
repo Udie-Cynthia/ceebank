@@ -196,3 +196,53 @@ tbody tr:last-child td{
 section, div[role="region"]{
   border-radius: 14px;
 }
+
+/* --- Premium micro-interactions (no TSX changes needed) --- */
+
+/* Softer nav link hover */
+nav a {
+  position: relative;
+  transition: background .12s ease, color .12s ease;
+}
+
+/* Tile: subtle lift, shadow and border accent */
+button.tile {
+  transition: transform .10s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+}
+button.tile:hover,
+button.tile:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: #cbd5e1; /* slate-300 */
+}
+
+/* Cards: gentle header divider look without an actual line */
+.card h2, .card h3 {
+  padding-bottom: 4px;
+}
+
+/* Tables: faint zebra striping */
+tbody tr:nth-child(odd) td {
+  background: #fafafa;
+}
+
+/* Inputs: nicer disabled state */
+input:disabled {
+  background: #f8fafc;
+  color: #94a3b8; /* slate-400 */
+}
+
+/* Buttons: focus ring for keyboard users */
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14,165,233,0.25);
+}
+
+/* Login card: tiny glow */
+main > .card {
+  transition: box-shadow .15s ease, transform .08s ease;
+}
+main > .card:hover {
+  box-shadow: 0 10px 28px rgba(15,23,42,0.10);
+  transform: translateY(-1px);
+}
