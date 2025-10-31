@@ -39,3 +39,5 @@ CI: rebuild after auth persistence fix
 CI: rebuild after auth guard fix
 
 CI: rebuild after making Home public for debugging
+
+CI: rebuild after adding global styles
