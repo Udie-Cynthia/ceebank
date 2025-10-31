@@ -7,3 +7,5 @@ CI: trigger workflow run
 CI: trigger server image build
 
 CI: trigger server build for transactions API
+
+CI: rebuild after tsconfig fix
