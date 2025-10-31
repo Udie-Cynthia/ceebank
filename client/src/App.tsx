@@ -1,6 +1,6 @@
 // client/src/App.tsx
-// Clean login-first app with guarded routes, persistent tokens,
-// Home greeting (external component), styled dashboard.
+// Clean, login-first app with guarded routes, persistent tokens,
+// styled Login, external HomePage (greeting + tiles), and DashboardLive.
 
 import React from "react";
 import {
@@ -15,9 +15,10 @@ import {
 
 import ApiInfo from "./components/ApiInfo";
 import RequireAuth from "./components/RequireAuth";
-import HomePage from "./components/HomePage";      // use external Home
+import HomePage from "./components/HomePage";
 import DashboardLive from "./components/DashboardLive";
 
+// ---------- Nav styles ----------
 const navStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -39,6 +40,7 @@ const linkStyle: React.CSSProperties = {
 
 const activeStyle: React.CSSProperties = { background: "#e2e8f0" };
 
+// ---------- Navbar ----------
 function Navbar() {
   const nav = useNavigate();
   const [authed, setAuthed] = React.useState(
@@ -48,6 +50,7 @@ function Navbar() {
     )
   );
 
+  // keep button state in sync with storage changes
   React.useEffect(() => {
     const i = setInterval(
       () =>
@@ -137,13 +140,7 @@ function Navbar() {
       </span>
 
       {authed && (
-        <button
-          onClick={onLogout}
-          className="btn-danger"
-          style={{
-            marginLeft: 12,
-          }}
-        >
+        <button className="btn-danger" onClick={onLogout} style={{ marginLeft: 12 }}>
           Logout
         </button>
       )}
@@ -151,6 +148,7 @@ function Navbar() {
   );
 }
 
+// ---------- Simple page wrapper ----------
 function Page({
   title,
   children,
@@ -173,6 +171,7 @@ function Page({
   );
 }
 
+// ---------- About ----------
 function AboutPage() {
   return (
     <Page title="About CeeBank">
@@ -198,6 +197,7 @@ function AboutPage() {
   );
 }
 
+// ---------- Login (styled, redirect-safe) ----------
 function LoginPage() {
   const nav = useNavigate();
   const location = useLocation() as any;
@@ -245,49 +245,79 @@ function LoginPage() {
   }
 
   return (
-    <Page title="Login">
-      <form onSubmit={onSubmit} className="grid" style={{ maxWidth: 420 }}>
-        <label className="grid">
-          <span className="kicker">Email</span>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            type="email"
-            placeholder="you@example.com"
+    <main
+      style={{
+        minHeight: "calc(100vh - 72px)",
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
+        background:
+          "radial-gradient(40rem 40rem at 10% -10%, rgba(37,99,235,.08), transparent 60%), radial-gradient(40rem 40rem at 110% 0%, rgba(14,165,233,.08), transparent 60%)",
+      }}
+    >
+      <section className="card" style={{ width: "100%", maxWidth: 440 }}>
+        <div style={{ marginBottom: 14, textAlign: "center" }}>
+          <img
+            src="/ceebank-logo.svg"
+            alt="CeeBank"
+            style={{ height: 44, display: "inline-block" }}
           />
-        </label>
-        <label className="grid">
-          <span className="kicker">Password</span>
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            type="password"
-            placeholder="********"
-          />
-        </label>
-        <button disabled={loading} type="submit">
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-        {message && (
-          <p
-            style={{
-              color: message.startsWith("Login successful") ? "#16a34a" : "#dc2626",
-              margin: 0,
-            }}
-          >
-            {message}
+          <h2 style={{ margin: "10px 0 0 0" }}>Welcome back</h2>
+          <p className="text-muted" style={{ marginTop: 6 }}>
+            Sign in to continue to your dashboard
           </p>
-        )}
-      </form>
-      <p style={{ marginTop: 16 }} className="text-muted">
-        Tip: any email+password works (mock backend).
-      </p>
-    </Page>
+        </div>
+
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
+          <label className="grid">
+            <span className="kicker">Email</span>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              type="email"
+              placeholder="you@example.com"
+            />
+          </label>
+
+          <label className="grid">
+            <span className="kicker">Password</span>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              type="password"
+              placeholder="********"
+            />
+          </label>
+
+          <button disabled={loading} type="submit">
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+
+          {message && (
+            <p
+              style={{
+                margin: 0,
+                color: message.startsWith("Login successful")
+                  ? "#16a34a"
+                  : "#dc2626",
+              }}
+            >
+              {message}
+            </p>
+          )}
+        </form>
+
+        <p className="text-muted" style={{ marginTop: 14, fontSize: 13 }}>
+          Tip: any email + password works (mock backend).
+        </p>
+      </section>
+    </main>
   );
 }
 
+// ---------- App ----------
 export default function App() {
   return (
     <BrowserRouter>
