@@ -1,6 +1,6 @@
 // client/src/App.tsx
-// Login-first routing: Home & Dashboard are protected by RequireAuth.
-// Adds a Logout button and redirects unauthenticated users to /login.
+// Clean, login-first app with guarded routes, solid redirect after login,
+// persistent tokens, Home greeting + deterministic 10-digit account number.
 
 import React from "react";
 import {
@@ -12,10 +12,15 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
+
+// Existing components in your repo:
 import ApiInfo from "./components/ApiInfo";
 import RequireAuth from "./components/RequireAuth";
-import DashboardLive from "./components/DashboardLive";
 import HomeTiles from "./components/HomeTiles";
+import DashboardLive from "./components/DashboardLive";
+// Optional tiny visual debug (shows Auth: ON/OFF). If you created it earlier, keep.
+// If you don't have it, you may delete the import and <TokenLamp /> line below.
+// import TokenLamp from "./components/TokenLamp";
 
 const navStyle: React.CSSProperties = {
   display: "flex",
@@ -38,31 +43,39 @@ const linkStyle: React.CSSProperties = {
 const activeStyle: React.CSSProperties = { background: "#e2e8f0" };
 
 function Navbar() {
-const [authed, setAuthed] = React.useState(
-  !!(sessionStorage.getItem("accessToken") || localStorage.getItem("accessToken"))
-);
+  const nav = useNavigate();
+  const [authed, setAuthed] = React.useState(
+    !!(
+      sessionStorage.getItem("accessToken") ||
+      localStorage.getItem("accessToken")
+    )
+  );
 
-
-  // Keep button state in sync if tokens change elsewhere
+  // keep button state in sync with storage changes
   React.useEffect(() => {
     const i = setInterval(
-      () => setAuthed(!!sessionStorage.getItem("accessToken")),
-      500
+      () =>
+        setAuthed(
+          !!(
+            sessionStorage.getItem("accessToken") ||
+            localStorage.getItem("accessToken")
+          )
+        ),
+      600
     );
     return () => clearInterval(i);
   }, []);
 
-const onLogout = () => {
-  sessionStorage.removeItem("accessToken");
-  sessionStorage.removeItem("refreshToken");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("displayName");
-  localStorage.removeItem("email");
-  setAuthed(false);
-  nav("/login", { replace: true });
-};
-
+  const onLogout = () => {
+    sessionStorage.removeItem("accessToken");
+    sessionStorage.removeItem("refreshToken");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("displayName");
+    localStorage.removeItem("email");
+    setAuthed(false);
+    nav("/login", { replace: true });
+  };
 
   return (
     <nav style={navStyle}>
@@ -75,7 +88,6 @@ const onLogout = () => {
       </a>
 
       <div style={{ display: "flex", gap: 8, marginLeft: 16 }}>
-        {/* Protected links only show when authenticated */}
         {authed && (
           <>
             <NavLink
@@ -100,7 +112,6 @@ const onLogout = () => {
           </>
         )}
 
-        {/* Public links */}
         <NavLink
           to="/about"
           style={({ isActive }) => ({
@@ -110,6 +121,7 @@ const onLogout = () => {
         >
           About
         </NavLink>
+
         {!authed && (
           <NavLink
             to="/login"
@@ -130,15 +142,15 @@ const onLogout = () => {
       {authed && (
         <button
           onClick={onLogout}
-            style={{
-              marginLeft: 12,
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #ef4444",
-              background: "#ef4444",
-              color: "white",
-              cursor: "pointer",
-            }}
+          style={{
+            marginLeft: 12,
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid #ef4444",
+            background: "#ef4444",
+            color: "white",
+            cursor: "pointer",
+          }}
         >
           Logout
         </button>
@@ -169,17 +181,6 @@ function Page({
   );
 }
 
-function HomePage() {
-  return (
-    <Page title="Welcome to CeeBank">
-      <p style={{ color: "#334155" }}>Secure, simple, and modern digital banking for demos and learning.</p>
-      <HomeTiles />
-      <ApiInfo />
-    </Page>
-  );
-}
-
-
 function AboutPage() {
   return (
     <Page title="About CeeBank">
@@ -200,6 +201,52 @@ function AboutPage() {
         Contact: <a href="mailto:udiecynthia@gmail.com">udiecynthia@gmail.com</a>{" "}
         • LinkedIn: linkedin.com/in/cynthia-udie-68936135b
       </p>
+    </Page>
+  );
+}
+
+function HomePage() {
+  // Name comes from login; default to "Cynthia"
+  const name =
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("displayName") ||
+        sessionStorage.getItem("displayName"))) ||
+    "Cynthia";
+
+  // Deterministic 10-digit account number derived from email
+  let acct = "0123456789";
+  if (typeof window !== "undefined") {
+    const email = localStorage.getItem("email") || "cynthia@example.com";
+    let h = 0;
+    for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) >>> 0;
+    acct = (h % 1_000_000_0000).toString().padStart(10, "0");
+  }
+
+  return (
+    <Page title={`Hello ${name}, welcome back`}>
+      <div
+        style={{
+          padding: 16,
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          background: "#fff",
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ color: "#64748b", fontSize: 14, marginBottom: 6 }}>
+          Account Number
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: 1 }}>
+          {acct}
+        </div>
+      </div>
+
+      <p style={{ color: "#334155" }}>
+        Secure, simple, and modern digital banking for demos and learning.
+      </p>
+
+      <HomeTiles />
+      <ApiInfo />
     </Page>
   );
 }
@@ -225,21 +272,24 @@ function LoginPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
 
-// Mock store tokens (DO NOT do this in production)
-sessionStorage.setItem("accessToken", json.accessToken);
-sessionStorage.setItem("refreshToken", json.refreshToken);
-localStorage.setItem("accessToken", json.accessToken);
-localStorage.setItem("refreshToken", json.refreshToken);
+      // Store tokens in both storages (mock!)
+      sessionStorage.setItem("accessToken", json.accessToken);
+      sessionStorage.setItem("refreshToken", json.refreshToken);
+      localStorage.setItem("accessToken", json.accessToken);
+      localStorage.setItem("refreshToken", json.refreshToken);
 
-// Save display name for Home greeting (fallback to email prefix)
-const displayName = (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
-localStorage.setItem("displayName", displayName || "Cynthia");
-localStorage.setItem("email", email);
+      // Save display name + email for Home greeting
+      const displayName =
+        (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
+      localStorage.setItem("displayName", displayName || "Cynthia");
+      localStorage.setItem("email", email);
 
-
+      // Immediate redirect + hard fallback
       const to = location.state?.from || "/dashboard";
+      nav(to, { replace: true });
+      setTimeout(() => (window.location.href = to), 300);
+
       setMessage("Login successful (mock). Redirecting…");
-      setTimeout(() => nav(to, { replace: true }), 600);
     } catch (e: any) {
       setMessage(`Login failed: ${e.message ?? e}`);
     } finally {
@@ -303,96 +353,36 @@ localStorage.setItem("email", email);
   );
 }
 
-
-function DashboardPage() {
-  // We'll wire this to live API data next step.
-  const balance = 1_000_000.0;
-  const transactions = [
-    { id: "seed_1", date: "2025-10-25", desc: "Initial demo funding", amount: +1_000_000.0 },
-  ];
-
-  return (
-    <Page title="Dashboard">
-      <div style={{ display: "grid", gap: 16 }}>
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Available Balance</h2>
-          <p style={{ fontSize: 28, margin: 0 }}>
-            <strong>
-              ₦{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </strong>
-          </p>
-          <p style={{ color: "#64748b", marginTop: 6 }}>
-            Demo funds for showcasing UI only.
-          </p>
-        </div>
-
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            background: "#fff",
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Recent Transactions</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "10px 6px" }}>Date</th>
-                <th style={{ padding: "10px 6px" }}>Description</th>
-                <th style={{ padding: "10px 6px", textAlign: "right" }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 6px" }}>{t.date}</td>
-                  <td style={{ padding: "10px 6px" }}>{t.desc}</td>
-                  <td
-                    style={{
-                      padding: "10px 6px",
-                      textAlign: "right",
-                      color: t.amount < 0 ? "#dc2626" : "#16a34a",
-                    }}
-                  >
-                    {t.amount < 0 ? "-" : "+"}₦
-                    {Math.abs(t.amount).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </Page>
-  );
-}
-
 export default function App() {
-  // Routes:
-  // - /login and /about are public.
-  // - /dashboard and / (Home) are protected by RequireAuth.
-  // - Default route redirects to /login to make the app login-first.
   return (
     <BrowserRouter>
       <Navbar />
+      {/* Optional: TokenLamp shows Auth: ON/OFF if you kept it */}
+      {/* <TokenLamp /> */}
       <Routes>
+        {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-<Route path="/" element={<HomePage />} />
+        {/* Protected */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <DashboardLive />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <HomePage />
+            </RequireAuth>
+          }
+        />
 
-
-        {/* Fallback: if unknown route, send to login */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
