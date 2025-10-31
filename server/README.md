@@ -9,3 +9,5 @@ CI: trigger server image build
 CI: trigger server build for transactions API
 
 CI: rebuild after tsconfig fix
+
+CI: rebuild with Dockerfile + debug ls
