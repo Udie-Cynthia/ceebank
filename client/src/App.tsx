@@ -15,6 +15,7 @@ import {
 
 // Existing components in your repo:
 import ApiInfo from "./components/ApiInfo";
+import HomePage from "./components/HomePage";
 import RequireAuth from "./components/RequireAuth";
 import HomeTiles from "./components/HomeTiles";
 import DashboardLive from "./components/DashboardLive";
@@ -205,22 +206,6 @@ function AboutPage() {
   );
 }
 
-function HomePage() {
-  // Name comes from login; default to "Cynthia"
-  const name =
-    (typeof window !== "undefined" &&
-      (localStorage.getItem("displayName") ||
-        sessionStorage.getItem("displayName"))) ||
-    "Cynthia";
-
-  // Deterministic 10-digit account number derived from email
-  let acct = "0123456789";
-  if (typeof window !== "undefined") {
-    const email = localStorage.getItem("email") || "cynthia@example.com";
-    let h = 0;
-    for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) >>> 0;
-    acct = (h % 1_000_000_0000).toString().padStart(10, "0");
-  }
 
   return (
     <Page title={`Hello ${name}, welcome back`}>
