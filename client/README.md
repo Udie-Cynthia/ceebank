@@ -55,3 +55,5 @@ CI: rebuild after HomePage dedupe
 CI: rebuild after App.tsx fix
 
 CI: rebuild after Home banner styling
+
+CI: rebuild after interaction polish
