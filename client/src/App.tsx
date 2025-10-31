@@ -175,8 +175,8 @@ function Page({
         margin: "0 auto",
       }}
     >
-      <h1 style={{ marginTop: 0 }}>{title}</h1>
-      {children}
+<h1 style={{ color: "#2563eb", fontWeight: 700, margin: 0 }}>CeeBank</h1>
+     Get {children}
     </main>
   );
 }
