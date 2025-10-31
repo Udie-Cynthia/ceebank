@@ -389,14 +389,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-<Route
-  path="/dashboard"
-  element={
-    <RequireAuth>
-      <DashboardLive />
-    </RequireAuth>
-  }
-/>
+<Route path="/" element={<HomePage />} />
 
 
         {/* Fallback: if unknown route, send to login */}
