@@ -31,3 +31,5 @@ CI: rebuild after ApiInfo fix
 CI: rebuild with DashboardLive
 
 CI: rebuild after adding DashboardLive
+
+CI: rebuild with HomeTiles
