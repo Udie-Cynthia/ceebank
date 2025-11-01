@@ -34,11 +34,9 @@ jobs:
 
       - name: Build and push (server)
         uses: docker/build-push-action@v6
-        with:
-          context: .                 # build context is the repo root
-          file: ./server/Dockerfile  # explicit path to the server Dockerfile
-          push: true
-          tags: |
-            udiecynthia/ceebank:server-dev
-            udiecynthia/ceebank:server-${{ github.sha }}
+       with:
+  context: ./server
+  file: ./server/Dockerfile
+  push: true
+  tags: udiecynthia/ceebank:server-dev,udiecynthia/ceebank:server-${{ github.sha }}
 
