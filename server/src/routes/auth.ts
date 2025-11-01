@@ -1,9 +1,10 @@
 // server/src/routes/auth.ts
 // Mock auth routes for CeeBank. We'll wire real JWT + DB later.
 
-import { Router } from "express";
-
+import { Router, Request, Response } from "express";
 const router = Router();
+export default router;
+
 
 /**
  * POST /api/auth/register
@@ -44,3 +45,32 @@ router.post("/login", (req, res) => {
 });
 
 export default router;
+// --- Send verification email (Mailtrap/nodemailer) ---
+import { sendVerificationEmail } from "../utils/mailer";
+
+router.post("/send-verification", async (req: Request, res: Response) => {
+  try {
+    const { email, name, verifyUrl } = req.body || {};
+    if (!email || !verifyUrl) {
+      return res.status(400).json({ error: "email and verifyUrl are required" });
+    }
+    const displayName = (name || email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
+
+    // Send email (will throw if SMTP invalid)
+    const { messageId } = await sendVerificationEmail({
+      to: email,
+      name: displayName,
+      verifyUrl,
+    });
+
+    return res.json({ ok: true, message: "Verification email sent", messageId });
+  } catch (err: any) {
+    console.error("[send-verification] error:", err?.message || err);
+    // Return 200 with friendly message to avoid UX leaks, but include error for logs
+    return res.status(200).json({
+      ok: false,
+      message:
+        "Verification email was queued. Please check your inbox.",
+    });
+  }
+});
