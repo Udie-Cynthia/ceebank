@@ -75,3 +75,5 @@ CI: rebuild after verify-email page
 CI: rebuild after verify-email redirect
 
 CI: rebuild after verify message cleanup
+
+CI: rebuild after verify-email fix
