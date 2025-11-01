@@ -134,9 +134,7 @@ export default function DashboardLive() {
               minimumFractionDigits: 2,
             })}
           </div>
-          <p className="text-muted" style={{ marginTop: 6 }}>
-            Demo funds for showcasing UI only.
-          </p>
+
         </section>
 
         {/* Transfer console */}

@@ -346,9 +346,7 @@ function LoginPage() {
           )}
         </form>
 
-        <p className="text-muted" style={{ marginTop: 14, fontSize: 13 }}>
-          Tip: any email + password works (mock backend).
-        </p>
+
       </section>
     </main>
   );
