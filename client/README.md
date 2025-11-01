@@ -67,3 +67,5 @@ CI: rebuild after dashboard toast
 CI: rebuild after text removals
 
 CI: rebuild after masked account addition
+
+CI: rebuild after register route wiring
