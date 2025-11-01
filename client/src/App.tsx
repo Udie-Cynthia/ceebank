@@ -1,7 +1,6 @@
 // client/src/App.tsx
-// Clean, login-first app with guarded routes, persistent tokens,
-// styled Login, external HomePage (greeting + tiles), and DashboardLive.
-// Navbar includes "Switch Account" so Login is always reachable.
+// App shell: guarded routes, styled Login, HomePage, DashboardLive,
+// richer About, Switch Account, and NEW /register route + link.
 
 import React from "react";
 import {
@@ -12,12 +11,14 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  Link,
 } from "react-router-dom";
 
 import ApiInfo from "./components/ApiInfo";
 import RequireAuth from "./components/RequireAuth";
 import HomePage from "./components/HomePage";
 import DashboardLive from "./components/DashboardLive";
+import RegisterPage from "./components/RegisterPage"; // NEW
 
 /* ---------- Nav styles ---------- */
 const navStyle: React.CSSProperties = {
@@ -51,7 +52,6 @@ function Navbar() {
     )
   );
 
-  // Keep the auth indicator in sync with storage
   React.useEffect(() => {
     const i = setInterval(
       () =>
@@ -110,7 +110,6 @@ function Navbar() {
             >
               Home
             </NavLink>
-            {/* Always-available way to reach Login while signed in */}
             <NavLink
               to="/login"
               title="Go to login to switch account"
@@ -125,15 +124,26 @@ function Navbar() {
         )}
 
         {!authed && (
-          <NavLink
-            to="/login"
-            style={({ isActive }) => ({
-              ...linkStyle,
-              ...(isActive ? activeStyle : {}),
-            })}
-          >
-            Login
-          </NavLink>
+          <>
+            <NavLink
+              to="/login"
+              style={({ isActive }) => ({
+                ...linkStyle,
+                ...(isActive ? activeStyle : {}),
+              })}
+            >
+              Login
+            </NavLink>
+            <NavLink
+              to="/register"
+              style={({ isActive }) => ({
+                ...linkStyle,
+                ...(isActive ? activeStyle : {}),
+              })}
+            >
+              Create Account
+            </NavLink>
+          </>
         )}
 
         <NavLink
@@ -183,7 +193,7 @@ function Page({
   );
 }
 
-/* ---------- About (richer content + © All Rights Reserved – 2025) ---------- */
+/* ---------- About ---------- */
 function AboutPage() {
   return (
     <Page title="About CeeBank">
@@ -234,7 +244,7 @@ function AboutPage() {
   );
 }
 
-/* ---------- Login (styled, redirect-safe) ---------- */
+/* ---------- Login (styled, now shows Create Account link) ---------- */
 function LoginPage() {
   const nav = useNavigate();
   const location = useLocation() as any;
@@ -268,7 +278,7 @@ function LoginPage() {
       localStorage.setItem("displayName", displayName || "Cynthia");
       localStorage.setItem("email", email);
 
-      // Immediate redirect + hard fallback
+      // Redirect
       const to = location.state?.from || "/dashboard";
       nav(to, { replace: true });
       setTimeout(() => (window.location.href = to), 300);
@@ -299,21 +309,21 @@ function LoginPage() {
             alt="CeeBank"
             style={{ height: 44, display: "inline-block" }}
           />
-          <h2 style={{ margin: "10px 0 0 0" }}>Welcome back</h2>
+          <h2 style={{ margin: "10px 0 0 0" }}>Sign in to CeeBank</h2>
           <p className="text-muted" style={{ marginTop: 6 }}>
-            Sign in to continue to your dashboard
+            Access your dashboard using your email and password.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
           <label className="grid">
-            <span className="kicker">Email</span>
+            <span className="kicker">Email Address</span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               type="email"
-              placeholder="you@example.com"
+              placeholder="name@email.com"
             />
           </label>
 
@@ -328,8 +338,13 @@ function LoginPage() {
             />
           </label>
 
+          <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <input type="checkbox" defaultChecked />
+            <span className="text-muted">Stay signed in for 30 days</span>
+          </label>
+
           <button disabled={loading} type="submit">
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in…" : "Sign In"}
           </button>
 
           {message && (
@@ -346,7 +361,23 @@ function LoginPage() {
           )}
         </form>
 
-
+        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+          <a href="#" onClick={(e) => e.preventDefault()} className="text-muted">
+            Forgot Password?
+          </a>
+          <div
+            style={{
+              background: "#f1f5f9",
+              border: "1px solid #e2e8f0",
+              borderRadius: 12,
+              padding: 12,
+              textAlign: "center",
+            }}
+          >
+            <span className="text-muted">Not enrolled?</span>{" "}
+            <Link to="/register">Create Account</Link>
+          </div>
+        </div>
       </section>
     </main>
   );
@@ -360,6 +391,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} /> {/* NEW */}
         <Route path="/about" element={<AboutPage />} />
 
         {/* Protected */}
