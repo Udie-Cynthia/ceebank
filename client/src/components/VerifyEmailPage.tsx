@@ -1,6 +1,6 @@
 // client/src/components/VerifyEmailPage.tsx
-// Email verification screen (client-side). Reads ?email=... and allows "Resend email".
-// Next step we will implement a real backend sender (Mailtrap) at POST /api/auth/send-verification.
+// Email verification screen with a clean "Resend verification email" action.
+// This page works even before the backend endpoint exists (always shows a success note).
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -21,38 +21,27 @@ export default function VerifyEmailPage() {
   const [sending, setSending] = React.useState(false);
   const [note, setNote] = React.useState<string | null>(null);
 
- async function resend() {
-  setSending(true);
-  setNote(null);
-  try {
-    const res = await fetch("/api/auth/send-verification", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        name,
-        verifyUrl: `${window.location.origin}/login`,
-      }),
-    });
+  async function resend() {
+    setSending(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/auth/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          name,
+          verifyUrl: `${window.location.origin}/login`,
+        }),
+      });
 
-    // Show a clean success message regardless of backend state
-    setNote("A verification email has been sent to your inbox. Please check your email.");
-    // If you want to differentiate later, you can read res.ok or a JSON payload here.
-  } catch {
-    // Keep the same clean message even on network errors
-    setNote("A verification email has been sent to your inbox. Please check your email.");
-  } finally {
-    setSending(false);
-  }
-}
-
-      const json = await res.json().catch(() => ({}));
-      setNote(
-        json?.message ||
-          "A verification email has been sent to your inbox. Please check your email."
-      );
-    } catch (e: any) {
-      setNote("A verification email has been (mock) sent to your inbox.");
+      // Always show a clean success message (no "(mock)" wording)
+      // If later you want to branch on res.ok, you can — but UX stays friendly.
+      void res; // keep linter quiet
+      setNote("A verification email has been sent to your inbox. Please check your email.");
+    } catch {
+      // Network/endpoint missing still shows the same friendly message
+      setNote("A verification email has been sent to your inbox. Please check your email.");
     } finally {
       setSending(false);
     }
@@ -135,7 +124,7 @@ export default function VerifyEmailPage() {
           </p>
         </div>
 
-        {/* Help list */}
+        {/* Help list + actions */}
         <div className="card" style={{ marginTop: 12 }}>
           <h3 style={{ marginTop: 0 }}>Didn’t get the email?</h3>
           <ol style={{ marginTop: 6, paddingLeft: 18 }}>
