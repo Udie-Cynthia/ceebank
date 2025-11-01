@@ -73,3 +73,5 @@ CI: rebuild after register route wiring
 CI: rebuild after verify-email page
 
 CI: rebuild after verify-email redirect
+
+CI: rebuild after verify message cleanup
