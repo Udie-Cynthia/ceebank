@@ -61,3 +61,5 @@ CI: rebuild after interaction polish
 CI: rebuild after App restore
 
 CI: rebuild after navbar underline animation
+
+CI: rebuild after dashboard toast
