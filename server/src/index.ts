@@ -6,6 +6,7 @@ import express from "express";
 import { env, warnIfInsecure } from "./config/env";
 import authRouter from "./routes/auth";
 import transactionsRouter from "./routes/transactions";
+import authRoutes from "./routes/auth";
 
 
 
@@ -29,6 +30,7 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/info", infoRouter);
+app.use("/api/auth", authRoutes);
 
 // Simple health check endpoint for uptime monitoring and ECS target health
 app.get("/health", (_req, res) => {
