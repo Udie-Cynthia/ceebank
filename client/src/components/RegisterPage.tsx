@@ -91,11 +91,12 @@ export default function RegisterPage() {
       localStorage.setItem("displayName", displayName);
       localStorage.setItem("email", email);
 
-      // 4) Redirect to dashboard (with hard fallback)
-      const to = location.state?.from || "/dashboard";
-      nav(to, { replace: true });
-      setTimeout(() => (window.location.href = to), 300);
-      setMessage("Account created! Redirecting…");
+      // 4) Redirect to Verify Email page (pass email in query)
+      const to = `/verify-email?email=${encodeURIComponent(email)}`;
+nav(to, { replace: true });
+// hard fallback in case SPA nav is interrupted
+setTimeout(() => (window.location.href = to), 300);
+setMessage("Account created! Redirecting to email verification…");
     } catch (e: any) {
       setMessage(`Registration failed: ${e.message ?? e}`);
     } finally {
