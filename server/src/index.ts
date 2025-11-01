@@ -1,50 +1,46 @@
 // server/src/index.ts
-// Minimal Express server entry for CeeBank API with env helper.
+// CeeBank API bootstrap (Express + CORS + routers)
 
-import infoRouter from "./routes/info";
 import express from "express";
-import { env, warnIfInsecure } from "./config/env";
-import authRouter from "./routes/auth";
-import transactionsRouter from "./routes/transactions";
+import cors from "cors";
+import helmet from "helmet";
+
+import infoRoutes from "./routes/info";
 import authRoutes from "./routes/auth";
-
-
+import transactionsRoutes from "./routes/transactions";
 
 const app = express();
 
-// Parse JSON bodies for API requests
+// Basic hardening + JSON body parser + CORS
+app.use(helmet({
+  contentSecurityPolicy: { useDefaults: true },
+}));
+app.use(cors());
 app.use(express.json());
-// Allow browser app (Vite on 5173) to call this API (CORS)
-app.use("/api", transactionsRouter);
-app.use("/api/auth", authRouter);
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
-
-app.use("/api/info", infoRouter);
-app.use("/api/auth", authRoutes);
-
-// Simple health check endpoint for uptime monitoring and ECS target health
+// Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "CeeBank API" });
+  res.json({ ok: true, service: "ceebank-api", ts: new Date().toISOString() });
 });
 
-// Warn if placeholder/missing secrets in non-prod
-warnIfInsecure();
+// Mount routers (these must exist)
+app.use("/api/info", infoRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/transactions", transactionsRoutes);
 
-// Start the HTTP server on configured port
-app.listen(env.PORT, () => {
+// 404 handler for unknown API routes
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ error: `Not found: ${req.method} ${req.path}` });
+  }
+  return next();
+});
+
+// Start server
+const PORT = Number(process.env.PORT || 4000);
+app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
-  console.log(`CeeBank API listening on http://localhost:${env.PORT}`);
+  console.log(`[ceebank-api] listening on port ${PORT}`);
 });
 
 export default app;
-
