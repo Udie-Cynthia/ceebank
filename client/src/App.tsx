@@ -19,6 +19,7 @@ import RequireAuth from "./components/RequireAuth";
 import HomePage from "./components/HomePage";
 import DashboardLive from "./components/DashboardLive";
 import RegisterPage from "./components/RegisterPage"; // NEW
+import VerifyEmailPage from "./components/VerifyEmailPage";
 
 /* ---------- Nav styles ---------- */
 const navStyle: React.CSSProperties = {
@@ -393,6 +394,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} /> {/* NEW */}
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         {/* Protected */}
         <Route
