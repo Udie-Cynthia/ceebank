@@ -69,3 +69,5 @@ CI: rebuild after text removals
 CI: rebuild after masked account addition
 
 CI: rebuild after register route wiring
+
+CI: rebuild after verify-email page
