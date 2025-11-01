@@ -37,6 +37,31 @@ function Toast({ text }: { text: string }) {
   );
 }
 
+function getDisplayName(): string {
+  if (typeof window === "undefined") return "Cynthia";
+  return (
+    localStorage.getItem("displayName") ||
+    sessionStorage.getItem("displayName") ||
+    "Cynthia"
+  );
+}
+
+function getAccountNumber(): string {
+  // Same deterministic 10-digit number as Home (from email)
+  let acct = "0000000000";
+  if (typeof window !== "undefined") {
+    const email = localStorage.getItem("email") || "cynthia@example.com";
+    let h = 0;
+    for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) >>> 0;
+    acct = (h % 1_000_000_0000).toString().padStart(10, "0");
+  }
+  return acct;
+}
+
+function maskAccount(acct: string): string {
+  return `•••• ${acct.slice(-4)}`;
+}
+
 export default function DashboardLive() {
   const [account, setAccount] = React.useState<Account | null>(null);
   const [txs, setTxs] = React.useState<Tx[]>([]);
@@ -125,6 +150,20 @@ export default function DashboardLive() {
   return (
     <>
       <div className="grid">
+        {/* Greeting + masked account */}
+<section className="card" aria-label="Account summary">
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div>
+      <div className="kicker">Welcome back</div>
+      <div style={{ fontSize: 20, fontWeight: 700 }}>{getDisplayName()}</div>
+    </div>
+    <div style={{ textAlign: "right" }}>
+      <div className="kicker">Account</div>
+      <div style={{ fontWeight: 600 }}>{maskAccount(getAccountNumber())}</div>
+    </div>
+  </div>
+</section>
+
         {/* Account card */}
         <section className="card" aria-label="Account balance">
           <div className="kicker">Available Balance</div>
