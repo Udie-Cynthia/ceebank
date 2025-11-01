@@ -1,7 +1,13 @@
-﻿node_modules
+﻿# keep source files; only ignore heavy/unnecessary stuff
+node_modules
 dist
-npm-debug.log
-.dockerignore
 .git
 .gitignore
+npm-debug.log
+*.log
 .env
+.env.*
+coverage
+.tmp
+.DS_Store
+
