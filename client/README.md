@@ -65,3 +65,5 @@ CI: rebuild after navbar underline animation
 CI: rebuild after dashboard toast
 
 CI: rebuild after text removals
+
+CI: rebuild after masked account addition
