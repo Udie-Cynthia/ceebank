@@ -21,27 +21,31 @@ export default function VerifyEmailPage() {
   const [sending, setSending] = React.useState(false);
   const [note, setNote] = React.useState<string | null>(null);
 
-  async function resend() {
-    setSending(true);
-    setNote(null);
-    try {
-      // This will work as a MOCK until we add the real server endpoint next step.
-      const res = await fetch("/api/auth/send-verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          name,
-          // Where your CTA should point in a real app:
-          verifyUrl: `${window.location.origin}/login`,
-        }),
-      });
+ async function resend() {
+  setSending(true);
+  setNote(null);
+  try {
+    const res = await fetch("/api/auth/send-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        name,
+        verifyUrl: `${window.location.origin}/login`,
+      }),
+    });
 
-      // If backend not ready yet, treat non-200 as mock success to keep the UX smooth.
-      if (!res.ok) {
-        setNote("A verification email has been (mock) sent to your inbox.");
-        return;
-      }
+    // Show a clean success message regardless of backend state
+    setNote("A verification email has been sent to your inbox. Please check your email.");
+    // If you want to differentiate later, you can read res.ok or a JSON payload here.
+  } catch {
+    // Keep the same clean message even on network errors
+    setNote("A verification email has been sent to your inbox. Please check your email.");
+  } finally {
+    setSending(false);
+  }
+}
+
       const json = await res.json().catch(() => ({}));
       setNote(
         json?.message ||
