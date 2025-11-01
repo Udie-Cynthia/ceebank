@@ -1,6 +1,4 @@
 // server/src/utils/mailer.ts
-// Thin wrapper around nodemailer using Mailtrap SMTP via environment variables.
-
 import nodemailer from "nodemailer";
 
 const {
@@ -11,23 +9,21 @@ const {
   MAIL_FROM = "CeeBank <no-reply@ceebank.online>",
 } = process.env;
 
-if (!MAILTRAP_HOST || !MAILTRAP_PORT || !MAILTRAP_USER || !MAILTRAP_PASS) {
-  // We don't throw at import time; we'll fail gracefully when sending.
-  // This avoids crashing the server if envs are missing during local dev.
-  // eslint-disable-next-line no-console
-  console.warn("[mailer] Mailtrap SMTP environment variables are not fully set.");
-}
-
 export function createTransport() {
   return nodemailer.createTransport({
-    host: MAILTRAP_HOST,
+    host: MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
     port: Number(MAILTRAP_PORT || 587),
-    secure: false,
+    secure: false, // Mailtrap uses STARTTLS on 587
     auth: {
       user: MAILTRAP_USER,
       pass: MAILTRAP_PASS,
     },
   });
+}
+
+export async function verifySmtp() {
+  const t = createTransport();
+  return t.verify(); // throws on failure
 }
 
 export async function sendVerificationEmail(opts: {
@@ -48,7 +44,7 @@ export async function sendVerificationEmail(opts: {
       opts.name || "there"
     )}!</h2>
     <p style="margin:8px 0 18px 0;line-height:1.6">
-      We’re excited to have you. Please verify your email address to activate your account.
+      Please verify your email address to activate your account.
     </p>
 
     <div style="margin:18px 0;">
@@ -96,3 +92,5 @@ function escapeHtml(s: string) {
     }
   });
 }
+
+    

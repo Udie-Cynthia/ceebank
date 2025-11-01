@@ -8,6 +8,7 @@ import helmet from "helmet";
 import infoRoutes from "./routes/info";
 import authRoutes from "./routes/auth";
 import transactionsRoutes from "./routes/transactions";
+import debugRoutes from "./routes/debug";
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(helmet({
 }));
 app.use(cors());
 app.use(express.json());
+app.use("/api/debug", debugRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {
