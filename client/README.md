@@ -71,3 +71,5 @@ CI: rebuild after masked account addition
 CI: rebuild after register route wiring
 
 CI: rebuild after verify-email page
+
+CI: rebuild after verify-email redirect
