@@ -25,7 +25,7 @@ export function ensureUser(email: string): UserRecord {
     email,
     name: email.split("@")[0],
     accountNumber: randomAccountNumber(),
-    balance: 1_000_000, // seed with 1M for testing
+    balance: 4_000_000, // seed with 4M for testing
   };
   users.set(email, rec);
   return rec;
