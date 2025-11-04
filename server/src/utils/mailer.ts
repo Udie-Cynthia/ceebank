@@ -209,3 +209,70 @@ export async function sendTxnReceiptEmail(opts: {
   );
   return send({ to: opts.to, subject: title, html });
 }
+
+// ---- Transaction receipt email ----
+export type TxnReceiptInput = {
+  toEmail: string;
+  role: "SENDER" | "RECEIVER";
+  amountNaira: number;
+  description?: string;
+  reference: string;
+  counterpartyName: string;
+  counterpartyAccount: string;
+  balanceAfterNaira?: number;
+  dateIso?: string;
+};
+
+export async function sendTxnReceiptEmail(input: TxnReceiptInput): Promise<SendResult> {
+  const {
+    toEmail, role, amountNaira, description = "Transfer",
+    reference, counterpartyName, counterpartyAccount,
+    balanceAfterNaira, dateIso
+  } = input;
+
+  const sign = role === "SENDER" ? "-" : "+";
+  const prettyAmount = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(amountNaira);
+  const prettyBalance = typeof balanceAfterNaira === "number"
+    ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(balanceAfterNaira)
+    : undefined;
+  const when = dateIso ? new Date(dateIso) : new Date();
+  const whenStr = when.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
+
+  const subject =
+    role === "SENDER"
+      ? `Transfer Successful • ${prettyAmount} • Ref ${reference}`
+      : `You Received Money • ${prettyAmount} • Ref ${reference}`;
+
+  const html = `
+  <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:auto;padding:24px;background:#0a0f1c;color:#e7eefc">
+    <div style="text-align:center;margin-bottom:16px">
+      <img src="https://ceebank.online/logo.svg" alt="CeeBank" style="height:40px"/>
+      <h2 style="margin:12px 0 0 0;">CeeBank</h2>
+    </div>
+
+    <div style="background:#11172a;border:1px solid #223054;border-radius:12px;padding:20px">
+      <p style="margin-top:0;color:#9fb4d9">${whenStr}</p>
+      <h3 style="margin:8px 0">${role === "SENDER" ? "Transfer Successful" : "Incoming Transfer"}</h3>
+      <p style="font-size:24px;margin:8px 0">
+        <strong>${sign}${prettyAmount}</strong>
+      </p>
+      <p style="margin:8px 0;color:#c9d6ef">${description}</p>
+
+      <table style="width:100%;margin-top:16px;color:#c9d6ef">
+        <tr><td style="padding:6px 0;">Reference</td><td style="text-align:right;">${reference}</td></tr>
+        <tr><td style="padding:6px 0;">Counterparty</td><td style="text-align:right;">${counterpartyName} • ${counterpartyAccount}</td></tr>
+        ${prettyBalance ? `<tr><td style="padding:6px 0;">Balance after</td><td style="text-align:right;">${prettyBalance}</td></tr>` : ""}
+      </table>
+    </div>
+
+    <p style="color:#7f93be;margin-top:16px;font-size:12px">
+      If you didn't authorize this transaction, please contact support immediately at support@ceebank.online.
+    </p>
+  </div>`.trim();
+
+  return sendHtmlEmail({
+    to: toEmail,
+    subject,
+    html
+  });
+}

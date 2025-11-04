@@ -1,74 +1,69 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import {
-  isSmtpReady,
-  sendVerificationEmail,
-  sendWelcomeEmail,
-  sendTxnReceiptEmail,
-} from "../utils/mailer";
+import { ensureUser, getUser, upsertUser } from "../utils/store";
+import { sendVerificationEmail, sendWelcomeEmail } from "../utils/mailer";
 
 const router = Router();
+const limiter = rateLimit({ windowMs: 60_000, max: 10 });
+router.use(limiter);
 
-// Light rate limiting for email endpoints
-const emailLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-function bad(res: any, status: number, error: string) {
-  return res.status(status).json({ ok: false, error });
-}
-
-// Health
 router.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "auth", smtpReady: isSmtpReady() });
+  res.json({ ok: true, service: "auth" });
 });
 
-// POST /api/auth/send-verification
-// body: { email, name, verifyUrl }
-router.post("/send-verification", emailLimiter, async (req, res) => {
-  const { email, name, verifyUrl } = req.body || {};
-  if (!email || !verifyUrl) {
-    return bad(res, 400, "email and verifyUrl are required");
-  }
-  const safeName = typeof name === "string" && name.trim() ? name.trim() : "Customer";
+router.post("/register", async (req, res) => {
+  try {
+    const { email, password, name, pin } = req.body || {};
+    if (!email || !password || !name) {
+      return res.status(400).json({ ok: false, error: "email, password, name are required" });
+    }
+    if (!/^\d{4}$/.test(String(pin || ""))) {
+      return res.status(400).json({ ok: false, error: "PIN must be 4 digits" });
+    }
 
-  const result = await sendVerificationEmail(email, safeName, verifyUrl);
-  if (!("ok" in result) || !result.ok) {
-    return bad(res, 500, result && "error" in result ? result.error : "send failed");
+    const u = ensureUser(email);
+    u.name = name;
+    u.hashedPassword = `mock:${password}`;
+    u.pin = String(pin);
+    upsertUser(u);
+
+    sendWelcomeEmail({ toEmail: email, name }).catch(() => {});
+    const verifyUrl = req.body.verifyUrl || "https://ceebank.online/login";
+    sendVerificationEmail({ toEmail: email, name, verifyUrl }).catch(() => {});
+
+    return res.json({
+      ok: true,
+      user: { email: u.email, name: u.name, accountNumber: u.accountNumber },
+      message: "Registration successful"
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Register failed" });
   }
-  return res.json({ ok: true, message: "Verification email sent", messageId: result.messageId, simulated: result.simulated });
 });
 
-// POST /api/auth/send-welcome
-// body: { email, name }
-router.post("/send-welcome", emailLimiter, async (req, res) => {
-  const { email, name } = req.body || {};
-  if (!email) return bad(res, 400, "email is required");
-  const safeName = typeof name === "string" && name.trim() ? name.trim() : "Customer";
-
-  const result = await sendWelcomeEmail(email, safeName);
-  if (!result.ok) return bad(res, 500, result.error);
-  return res.json({ ok: true, message: "Welcome email sent", messageId: result.messageId, simulated: result.simulated });
-});
-
-// POST /api/auth/send-txn-receipt
-// body: { to, name, type, amount, reference, timestampISO, balanceAfter, note?, counterparty? }
-router.post("/send-txn-receipt", emailLimiter, async (req, res) => {
-  const { to, name, type, amount, reference, timestampISO, balanceAfter, note, counterparty } = req.body || {};
-  if (!to || !type || typeof amount !== "number" || !reference || !timestampISO || typeof balanceAfter !== "number") {
-    return bad(res, 400, "to, type, amount, reference, timestampISO, balanceAfter are required");
+router.post("/login", (req, res) => {
+  const { email, password } = req.body || {};
+  const u = getUser(email || "");
+  if (!u || u.hashedPassword !== `mock:${password}`) {
+    return res.status(401).json({ ok: false, error: "Invalid credentials" });
   }
-  const safeName = typeof name === "string" && name.trim() ? name.trim() : "Customer";
-
-  const result = await sendTxnReceiptEmail({
-    to, name: safeName, type, amount, reference, timestampISO, balanceAfter, note, counterparty,
+  res.json({
+    ok: true,
+    user: { email: u.email, name: u.name, accountNumber: u.accountNumber },
+    accessToken: "mock_access_token",
+    refreshToken: "mock_refresh_token"
   });
-  if (!result.ok) return bad(res, 500, result.error);
-  return res.json({ ok: true, message: "Transaction receipt sent", messageId: result.messageId, simulated: result.simulated });
+});
+
+router.post("/send-verification", async (req, res) => {
+  try {
+    const { email, name, verifyUrl } = req.body || {};
+    if (!email) return res.status(400).json({ ok: false, error: "email is required" });
+    const out = await sendVerificationEmail({ toEmail: email, name: name || email, verifyUrl: verifyUrl || "https://ceebank.online/login" });
+    return res.status(out.ok ? 200 : 500).json(out);
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "send-verification failed" });
+  }
 });
 
 export default router;
-

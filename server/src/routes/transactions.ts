@@ -1,122 +1,81 @@
-// server/src/routes/transactions.ts
-// Demo in-memory account + transactions API for CeeBank.
-// NOTE: This uses in-memory storage for demo/testing only.
-//       Restarting the server will reset balances/transactions.
-
 import { Router } from "express";
-import { v4 as uuidv4 } from "uuid";
+import rateLimit from "express-rate-limit";
+import { ensureUser, getUser, upsertUser } from "../utils/store";
+import { sendTxnReceiptEmail } from "../utils/mailer";
 
 const router = Router();
+const limiter = rateLimit({ windowMs: 60_000, max: 20 });
+router.use(limiter);
 
-// Demo user id used by mock auth
-const DEMO_USER_ID = "user_mock_123";
-const CURRENCY = "NGN";
-
-// Seed demo account state (large starting balance for testing transfers)
-const demoAccount: {
-  userId: string;
-  balance: number; // smallest unit is Naira with decimals; we'll use normal float for demo
-  currency: string;
-} = {
-  userId: DEMO_USER_ID,
-  balance: 1_000_000.0, // 1,000,000.00 NGN starting balance
-  currency: CURRENCY,
-};
-
-// Seed demo transactions (most recent first)
-const transactions: Array<{
-  id: string;
-  userId: string;
-  date: string; // ISO/date string
-  description: string;
-  amount: number; // positive for credit, negative for debit
-  balanceAfter: number;
-}> = [
-  {
-    id: uuidv4(),
-    userId: DEMO_USER_ID,
-    date: new Date().toISOString().slice(0, 10),
-    description: "Initial demo funding",
-    amount: +1_000_000.0,
-    balanceAfter: demoAccount.balance,
-  },
-];
-
-// Helper: format JSON responses
-function accountPayload() {
-  return {
-    userId: demoAccount.userId,
-    balance: demoAccount.balance,
-    currency: demoAccount.currency,
-  };
+function ref() {
+  const stamp = new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const rnd = Math.random().toString(36).slice(2,6).toUpperCase();
+  return `CEE-${stamp}-${rnd}`;
 }
 
-/**
- * GET /api/account
- * Returns demo account info: userId, balance, currency
- */
-router.get("/account", (_req, res) => {
-  res.json(accountPayload());
-});
+router.post("/transfer", async (req, res) => {
+  try {
+    const { email, pin, toAccount, toName, amount, description } = req.body || {};
+    if (!email || !toAccount || !toName || !amount) {
+      return res.status(400).json({ ok: false, error: "email, toAccount, toName, amount are required" });
+    }
+    if (!/^\d{4}$/.test(String(pin || ""))) {
+      return res.status(400).json({ ok: false, error: "Valid 4-digit PIN required" });
+    }
 
-/**
- * GET /api/transactions
- * Returns list of transactions for the demo user (most recent first).
- * Supports optional ?limit= (integer).
- */
-router.get("/transactions", (req, res) => {
-  const limit = Math.max(0, parseInt(String(req.query.limit ?? "0")));
-  const list = limit > 0 ? transactions.slice(0, limit) : transactions;
-  res.json({ count: list.length, transactions: list });
-});
+    const sender = getUser(email);
+    if (!sender) return res.status(404).json({ ok: false, error: "User not found" });
+    if (sender.pin !== String(pin)) return res.status(401).json({ ok: false, error: "Incorrect PIN" });
 
-/**
- * POST /api/transactions/transfer
- * Body: { to: string, amount: number, description?: string }
- * Performs basic validation and updates the in-memory balance + ledger.
- */
-router.post("/transactions/transfer", (req, res) => {
-  const { to, amount, description } = req.body ?? {};
-  const amt = Number(amount);
-  if (!to || !amount || Number.isNaN(amt) || amt <= 0) {
-    return res.status(400).json({ error: "Invalid transfer payload. Need 'to' and positive 'amount'." });
+    const amountKobo = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+      return res.status(400).json({ ok: false, error: "Invalid amount" });
+    }
+
+    sender.balance = (sender.balance ?? 0) - amountKobo;
+    const balanceAfter = (sender.balance ?? 0);
+    upsertUser(sender);
+
+    const receiver = ensureUser(`${toAccount}@ceebank.mock`);
+    receiver.name = toName;
+    upsertUser(receiver);
+
+    const reference = ref();
+    const nowIso = new Date().toISOString();
+
+    sendTxnReceiptEmail({
+      toEmail: sender.email,
+      role: "SENDER",
+      amountNaira: Number(amount),
+      description,
+      reference,
+      counterpartyName: toName,
+      counterpartyAccount: toAccount,
+      balanceAfterNaira: Number((balanceAfter / 100).toFixed(2)),
+      dateIso: nowIso
+    }).catch(() => {});
+
+    sendTxnReceiptEmail({
+      toEmail: receiver.email,
+      role: "RECEIVER",
+      amountNaira: Number(amount),
+      description,
+      reference,
+      counterpartyName: sender.name || sender.email,
+      counterpartyAccount: sender.accountNumber || "N/A",
+      dateIso: nowIso
+    }).catch(() => {});
+
+    return res.json({
+      ok: true,
+      reference,
+      amount: Number(amount),
+      description,
+      balanceAfter: Number((balanceAfter / 100).toFixed(2))
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "transfer failed" });
   }
-
-  // Simple insufficient funds check
-  if (amt > demoAccount.balance) {
-    return res.status(400).json({ error: "Insufficient funds for this transfer." });
-  }
-
-  // Debit from demo user
-  demoAccount.balance = Number((demoAccount.balance - amt).toFixed(2));
-
-  const txDebit = {
-    id: uuidv4(),
-    userId: DEMO_USER_ID,
-    date: new Date().toISOString().slice(0, 10),
-    description: `Transfer to ${String(to)}${description ? " — " + String(description) : ""}`,
-    amount: -Math.abs(amt),
-    balanceAfter: demoAccount.balance,
-  };
-
-  // For demo, also create a corresponding incoming credit transaction (optional)
-  const txCredit = {
-    id: uuidv4(),
-    userId: DEMO_USER_ID,
-    date: new Date().toISOString().slice(0, 10),
-    description: `Received by ${String(to)} (simulation)`,
-    amount: 0.0, // we won't actually increase balance for the "to" user in demo
-    balanceAfter: demoAccount.balance,
-  };
-
-  // Prepend so newest are first
-  transactions.unshift(txDebit, txCredit);
-
-  return res.status(201).json({
-    message: "Transfer processed (demo).",
-    account: accountPayload(),
-    transaction: txDebit,
-  });
 });
 
 export default router;
