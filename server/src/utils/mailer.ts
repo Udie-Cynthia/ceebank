@@ -1,6 +1,6 @@
 // src/utils/mailer.ts
-// Centralized email sending for CeeBank using your SES SMTP envs.
-// Exposes helpers: sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail.
+// Centralized email sending for CeeBank using SES SMTP envs.
+// Exposes helpers: sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail, verifySmtp.
 
 import nodemailer from "nodemailer";
 
@@ -15,7 +15,7 @@ const {
 } = process.env;
 
 /**
- * Create a nodemailer transport using generic SMTP (mapped to SES in your envs).
+ * Create a nodemailer transport using generic SMTP (mapped to SES via envs).
  * Port 465 => secure TLS; otherwise STARTTLS.
  */
 function makeTransport() {
@@ -51,7 +51,7 @@ export async function sendEmail(
       from: MAIL_FROM,
       to,
       subject,
-      text: text || html.replace(/<[^>]+>/g, " "), // primitive fallback
+      text: text || html.replace(/<[^>]+>/g, " "),
       html,
     });
 
@@ -64,66 +64,72 @@ export async function sendEmail(
   }
 }
 
-/* ---------------- Email Templates ---------------- */
+/* ---------------- Email Templates (polished, production tone) ---------------- */
+
+function brandHeader() {
+  return `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
+    </div>
+  `;
+}
+
+function baseShell(inner: string) {
+  return `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
+      ${brandHeader()}
+      ${inner}
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+      <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
+    </div>
+  `;
+}
 
 function verificationTemplate(name: string, verifyUrl: string) {
   const safeName = name?.trim() || "there";
   return {
     subject: "Verify your CeeBank account",
-    html: `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
-        <div style="text-align:center;margin-bottom:16px">
-          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
-        </div>
-        <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, welcome to CeeBank!</h2>
-        <p style="margin:0 0 16px 0;color:#334155">
-          Please verify your email to activate your account.
-        </p>
-        <p style="text-align:center;margin:24px 0">
-          <a href="${verifyUrl}"
-             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
-            Verify my email
-          </a>
-        </p>
-        <p style="font-size:12px;color:#64748b">
-          If the button doesn't work, copy and paste this link into your browser:<br/>
-          <span style="word-break:break-all">${verifyUrl}</span>
-        </p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
-        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
-      </div>
-    `,
+    html: baseShell(`
+      <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, please verify your email</h2>
+      <p style="margin:0 0 16px 0;color:#334155">
+        For your security, confirm your email address to activate your account.
+      </p>
+      <p style="text-align:center;margin:24px 0">
+        <a href="${verifyUrl}"
+           style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+          Verify my email
+        </a>
+      </p>
+      <p style="font-size:12px;color:#64748b">
+        If the button doesn’t work, copy and paste this link into your browser:<br/>
+        <span style="word-break:break-all">${verifyUrl}</span>
+      </p>
+    `),
   };
 }
 
 function welcomeTemplate(name: string) {
   const safeName = name?.trim() || "there";
   return {
-    subject: "Welcome to CeeBank 🎉",
-    html: `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
-        <div style="text-align:center;margin-bottom:16px">
-          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
-        </div>
-        <h2 style="margin:0 0 8px 0;color:#0f172a">Hello ${safeName}, your account is ready!</h2>
-        <p style="margin:0 0 12px 0;color:#334155">
-          Thanks for joining CeeBank. You can now log in, view your balance, transfer funds, buy airtime, pay bills, and more.
-        </p>
-        <ul style="margin:0 0 16px 18px;color:#334155">
-          <li>Secure login with JWT</li>
-          <li>Demo transfers & transactions</li>
-          <li>Responsive, modern UI</li>
-        </ul>
-        <p style="text-align:center;margin:24px 0">
-          <a href="https://ceebank.online/login"
-             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
-            Go to Dashboard
-          </a>
-        </p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
-        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
-      </div>
-    `,
+    subject: "Welcome to CeeBank",
+    html: baseShell(`
+      <h2 style="margin:0 0 8px 0;color:#0f172a">Hello ${safeName}, your account is ready</h2>
+      <p style="margin:0 0 12px 0;color:#334155">
+        Thank you for choosing CeeBank. You can sign in to manage your accounts,
+        send transfers, pay bills, and more—securely from anywhere.
+      </p>
+      <ul style="margin:0 0 16px 18px;color:#334155">
+        <li>Secure sign-in and session protection</li>
+        <li>Fast transfers and clear transaction history</li>
+        <li>Modern, responsive experience across devices</li>
+      </ul>
+      <p style="text-align:center;margin:24px 0">
+        <a href="https://ceebank.online/login"
+           style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+          Go to Login
+        </a>
+      </p>
+    `),
   };
 }
 
@@ -131,33 +137,26 @@ function passwordResetTemplate(name: string, resetUrl: string, code?: string) {
   const safeName = name?.trim() || "there";
   return {
     subject: "Reset your CeeBank password",
-    html: `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
-        <div style="text-align:center;margin-bottom:16px">
-          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
-        </div>
-        <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, reset your password</h2>
-        <p style="margin:0 0 12px 0;color:#334155">
-          Click the button below to choose a new password.
-        </p>
-        <p style="text-align:center;margin:24px 0">
-          <a href="${resetUrl}"
-             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
-            Reset password
-          </a>
-        </p>
-        ${
-          code
-            ? `<p style="font-size:13px;color:#334155;text-align:center">Or use this one-time code: <b>${code}</b></p>`
-            : ""
-        }
-        <p style="font-size:12px;color:#64748b">
-          If you didn’t request this, you can ignore this email.
-        </p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
-        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
-      </div>
-    `,
+    html: baseShell(`
+      <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, reset your password</h2>
+      <p style="margin:0 0 12px 0;color:#334155">
+        Click the button below to choose a new password. If you didn’t request this, ignore this message.
+      </p>
+      <p style="text-align:center;margin:24px 0">
+        <a href="${resetUrl}"
+           style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+          Reset password
+        </a>
+      </p>
+      ${
+        code
+          ? `<p style="font-size:13px;color:#334155;text-align:center">Or use this one-time code: <b>${code}</b></p>`
+          : ""
+      }
+      <p style="font-size:12px;color:#64748b">
+        For your security, this link may expire.
+      </p>
+    `),
   };
 }
 
@@ -204,7 +203,7 @@ export async function verifySmtp(): Promise<{
 
   try {
     const transporter = makeTransport();
-    await transporter.verify(); // resolves if SMTP auth/connection is OK
+    await transporter.verify();
     return { ok: true, host: MAILTRAP_HOST, port: portNum, secure, message: "SMTP ready" };
   } catch (err: any) {
     return {
