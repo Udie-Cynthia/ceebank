@@ -1,20 +1,19 @@
-// server/src/routes/debug.ts
-import { Router, Request, Response } from "express";
-import { verifySmtp } from "../utils/mailer";
+import { Router } from "express";
+import { isSmtpReady } from "../utils/mailer";
 
 const router = Router();
 
-// GET /api/debug/smtp - checks SMTP connectivity/creds
-router.get("/smtp", async (_req: Request, res: Response) => {
-  try {
-    const info = await verifySmtp();
-    return res.json({ ok: true, info });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || String(err),
-    });
-  }
+// Simple SMTP status for debugging in EC2
+router.get("/smtp-status", (_req, res) => {
+  res.json({
+    ok: true,
+    smtpReady: isSmtpReady(),
+    hasHost: Boolean(process.env.MAIL_HOST),
+    hasUser: Boolean(process.env.MAIL_USER),
+    hasPass: Boolean(process.env.MAIL_PASS),
+    from: process.env.MAIL_FROM || null,
+  });
 });
 
 export default router;
+
