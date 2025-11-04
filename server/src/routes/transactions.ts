@@ -1,117 +1,152 @@
-// server/src/routes/transactions.ts
 import { Router, Request, Response } from "express";
-import { ensureUser, getUser, adjustBalance, verifyPin } from "../utils/store";
+import { nanoid } from "nanoid";
+import {
+  getUser,
+  verifyPin,
+  setBalance,
+  pushTransaction,
+  listTransactions,
+  type User,
+} from "../utils/store";
 import { sendTxnReceiptEmail } from "../utils/mailer";
 
 const router = Router();
 
 /**
  * POST /api/transactions/transfer
- * Body:
- * {
- *   email: string,            // sender email (must exist)
- *   pin: string,              // 4-digit PIN
- *   toAccount: string,        // e.g. 'GTB-22334455'
- *   toName?: string,          // recipient display name
- *   toEmail?: string,         // optional: if provided, send them a receipt too
- *   amount: number,           // in NGN
- *   description?: string
- * }
+ * Body: { email, pin, toAccount, toName, toEmail?, amount, description? }
+ * Notes:
+ *  - We only store the sender's transactions in the in-memory store.
+ *  - Email receipts are sent (sender + optional recipient) via SES if configured.
  */
 router.post("/transfer", async (req: Request, res: Response) => {
   try {
-    const { email, pin, toAccount, toName, toEmail, amount, description } = req.body || {};
+    const {
+      email,
+      pin,
+      toAccount,
+      toName,
+      toEmail, // used only for sending a receipt, NOT stored in tx object
+      amount,
+      description,
+    } = req.body ?? {};
 
-    if (!email || !pin || !toAccount || typeof amount !== "number") {
-      return res.status(400).json({
-        ok: false,
-        error: "email, pin, toAccount, amount are required",
-      });
+    // Basic validation
+    if (!email || !pin || !toAccount || !toName) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Missing required fields." });
     }
-    if (!/^\d{4}$/.test(String(pin))) {
-      return res.status(400).json({ ok: false, error: "pin must be a 4-digit code" });
-    }
-    if (amount <= 0) {
-      return res.status(400).json({ ok: false, error: "amount must be > 0" });
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Amount must be a positive number." });
     }
 
+    // Sender lookup
     const sender = getUser(email);
     if (!sender) {
       return res.status(404).json({ ok: false, error: "Sender not found" });
     }
-    if (!verifyPin(email, pin)) {
+
+    // PIN check
+    const pinOk = verifyPin(email, String(pin));
+    if (!pinOk) {
       return res.status(401).json({ ok: false, error: "Invalid PIN" });
     }
-    if ((sender.balance || 0) < amount) {
-      return res.status(400).json({ ok: false, error: "Insufficient balance" });
+
+    // Balance check (THIS was the CI error: do NOT assign a User to a number)
+    const currentBalance: number = sender.balance;
+    if (currentBalance < amt) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Insufficient funds" });
     }
 
-    // Perform transfer (debit sender)
-    const newBal = adjustBalance(email, -amount);
+    // Generate reference & timestamps
+    const nowIso = new Date().toISOString();
+    const shortRef = nanoid(6).toUpperCase();
+    const reference = `CB-${Date.now()}-${shortRef}`;
 
-    // Generate a reference
-    const txnRef = `CB-${Date.now()}-${Math.floor(Math.random() * 1e6)
-      .toString()
-      .padStart(6, "0")}`;
+    // Compute new balance and persist
+    const newBalance = currentBalance - amt;
+    setBalance(email, newBalance);
 
-    // Email receipt to sender
-    await sendTxnReceiptEmail({
-      to: email,
-      name: sender.name || "Customer",
-      amount,
+    // Record the DEBIT transaction for the sender
+    pushTransaction(email, {
+      to: email, // owner of this ledger
+      name: sender.name || email,
+      amount: amt,
       direction: "DEBIT",
-      balance: newBal,
-      txnRef,
-      description,
+      balance: newBalance,
+      txnRef: reference,
+      description: description || `Transfer to ${toName}`,
       toAccount,
       toName,
-      when: new Date().toISOString(),
+      when: nowIso,
     });
 
-    // Optionally email the counterparty (if an email was provided)
-    if (toEmail) {
-      const counterpartyName = toName || toEmail.split("@")[0] || "Recipient";
+    // Fire off email receipts (best-effort; do not fail the transfer if email fails)
+    try {
       await sendTxnReceiptEmail({
-        to: toEmail,
-        name: counterpartyName,
-        amount,
-        direction: "CREDIT",
-        balance: 0, // unknown for external
-        txnRef,
-        description,
-        toAccount, // from sender's POV, this still shows the dest
-        toName: sender.name || "CeeBank Customer",
-        when: new Date().toISOString(),
+        toEmail: email,
+        toName: sender.name || "Customer",
+        type: "DEBIT",
+        amount: amt,
+        balanceAfter: newBalance,
+        counterpartyName: toName,
+        counterpartyAccount: toAccount,
+        reference,
+        description: description || "",
+        whenIso: nowIso,
       });
+
+      if (toEmail) {
+        await sendTxnReceiptEmail({
+          toEmail,
+          toName: toName,
+          type: "CREDIT",
+          amount: amt,
+          balanceAfter: undefined, // unknown for recipient outside our system
+          counterpartyName: sender.name || email,
+          counterpartyAccount: sender.accountNumber,
+          reference,
+          description: description || "",
+          whenIso: nowIso,
+        });
+      }
+    } catch (e) {
+      // Log-only; we don't block the successful transfer on mail errors
+      console.error("[mail] transfer receipt error:", (e as Error).message);
     }
 
     return res.json({
       ok: true,
-      reference: txnRef,
-      balance: newBal,
+      reference,
+      balance: newBalance,
       message: "Transfer successful",
     });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: String(err?.message || err) });
+  } catch (err) {
+    console.error("[transfer] error:", err);
+    return res.status(500).json({ ok: false, error: "Server error" });
   }
 });
 
 /**
- * Simple account summary
- * GET /api/transactions/summary?email=...
+ * GET /api/transactions/list?email=...
  */
-router.get("/summary", (req: Request, res: Response) => {
+router.get("/list", (req: Request, res: Response) => {
   const email = String(req.query.email || "");
-  if (!email) return res.status(400).json({ ok: false, error: "email is required" });
-
-  const u = ensureUser(email);
-  res.json({
-    ok: true,
-    email: u.email,
-    name: u.name,
-    accountNumber: u.accountNumber,
-    balance: u.balance,
-  });
+  if (!email) {
+    return res.status(400).json({ ok: false, error: "email is required" });
+  }
+  const user = getUser(email);
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "User not found" });
+  }
+  const items = listTransactions(email);
+  return res.json({ ok: true, items });
 });
 
 export default router;
