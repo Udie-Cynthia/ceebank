@@ -189,3 +189,30 @@ export async function sendPasswordResetEmail(
   const t = passwordResetTemplate(name, resetUrl, code);
   return sendEmail(email, t.subject, t.html);
 }
+
+/** Quick SMTP verification (used by /api/debug/smtp) */
+export async function verifySmtp(): Promise<{
+  ok: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  message?: string;
+  error?: string;
+}> {
+  const portNum = parseInt(MAILTRAP_PORT, 10) || 587;
+  const secure = portNum === 465;
+
+  try {
+    const transporter = makeTransport();
+    await transporter.verify(); // resolves if SMTP auth/connection is OK
+    return { ok: true, host: MAILTRAP_HOST, port: portNum, secure, message: "SMTP ready" };
+  } catch (err: any) {
+    return {
+      ok: false,
+      host: MAILTRAP_HOST,
+      port: portNum,
+      secure,
+      error: err?.message || "SMTP verify failed",
+    };
+  }
+}
