@@ -14,6 +14,10 @@ import {
 } from "../utils/mailer";
 
 const router = Router();
+// Lightweight health probe for auth routes
+router.get("/health", (_req, res) => {
+  res.json({ ok: true, service: "auth" });
+});
 
 /** In-memory mock "users" store (for demo only) */
 type User = {
