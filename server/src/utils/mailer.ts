@@ -1,19 +1,35 @@
-// server/src/utils/mailer.ts
+// src/utils/mailer.ts
+// Centralized email sending for CeeBank using your SES SMTP envs.
+// Exposes helpers: sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail.
+
 import nodemailer from "nodemailer";
 
+type MailResult = { ok: boolean; messageId?: string; error?: string };
+
 const {
-  MAILTRAP_HOST,
-  MAILTRAP_PORT,
-  MAILTRAP_USER,
-  MAILTRAP_PASS,
-  MAIL_FROM = "CeeBank <no-reply@ceebank.online>",
+  MAILTRAP_HOST = "",
+  MAILTRAP_PORT = "587",
+  MAILTRAP_USER = "",
+  MAILTRAP_PASS = "",
+  MAIL_FROM = "CeeBank <hello@ceebank.online>",
 } = process.env;
 
-export function createTransport() {
+/**
+ * Create a nodemailer transport using generic SMTP (mapped to SES in your envs).
+ * Port 465 => secure TLS; otherwise STARTTLS.
+ */
+function makeTransport() {
+  const portNum = parseInt(MAILTRAP_PORT, 10) || 587;
+  const secure = portNum === 465;
+
+  if (!MAILTRAP_HOST || !MAILTRAP_USER || !MAILTRAP_PASS) {
+    throw new Error("SMTP is not configured. Check MAILTRAP_* env vars.");
+  }
+
   return nodemailer.createTransport({
-    host: MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
-    port: Number(MAILTRAP_PORT || 587),
-    secure: false, // Mailtrap uses STARTTLS on 587
+    host: MAILTRAP_HOST,
+    port: portNum,
+    secure,
     auth: {
       user: MAILTRAP_USER,
       pass: MAILTRAP_PASS,
@@ -21,76 +37,155 @@ export function createTransport() {
   });
 }
 
-export async function verifySmtp() {
-  const t = createTransport();
-  return t.verify(); // throws on failure
+/** Core send helper */
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text?: string
+): Promise<MailResult> {
+  try {
+    const transporter = makeTransport();
+
+    const info = await transporter.sendMail({
+      from: MAIL_FROM,
+      to,
+      subject,
+      text: text || html.replace(/<[^>]+>/g, " "), // primitive fallback
+      html,
+    });
+
+    return { ok: true, messageId: info.messageId };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: err?.message || "Failed to send email",
+    };
+  }
 }
 
-export async function sendVerificationEmail(opts: {
-  to: string;
-  name: string;
-  verifyUrl: string;
-}) {
-  const transporter = createTransport();
+/* ---------------- Email Templates ---------------- */
 
-  const html = `
-  <div style="font-family:system-ui,Segoe UI,Inter,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <img src="https://ceebank.online/ceebank-logo.svg" alt="CeeBank" style="height:36px"/>
-      <span style="font-weight:700;font-size:18px">CeeBank</span>
-    </div>
-
-    <h2 style="margin:16px 0 8px 0;">Welcome to CeeBank, ${escapeHtml(
-      opts.name || "there"
-    )}!</h2>
-    <p style="margin:8px 0 18px 0;line-height:1.6">
-      Please verify your email address to activate your account.
-    </p>
-
-    <div style="margin:18px 0;">
-      <a href="${opts.verifyUrl}"
-         style="display:inline-block;background:#2563eb;color:white;text-decoration:none;
-                padding:12px 18px;border-radius:10px;font-weight:600">
-        Verify my email
-      </a>
-    </div>
-
-    <p style="color:#475569;font-size:14px;line-height:1.6">
-      Or copy and paste this link into your browser:<br/>
-      <span style="word-break:break-all;color:#0ea5e9">${opts.verifyUrl}</span>
-    </p>
-
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
-
-    <p style="color:#64748b;font-size:12px;margin:0">
-      If you did not create an account, you can safely ignore this email.
-    </p>
-    <p style="color:#64748b;font-size:12px;margin:6px 0 0 0">
-      © All Rights Reserved – 2025 • CeeBank
-    </p>
-  </div>`;
-
-  const result = await transporter.sendMail({
-    from: MAIL_FROM,
-    to: opts.to,
-    subject: "Welcome to CeeBank — verify your email",
-    html,
-  });
-
-  return { messageId: result.messageId };
+function verificationTemplate(name: string, verifyUrl: string) {
+  const safeName = name?.trim() || "there";
+  return {
+    subject: "Verify your CeeBank account",
+    html: `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
+        </div>
+        <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, welcome to CeeBank!</h2>
+        <p style="margin:0 0 16px 0;color:#334155">
+          Please verify your email to activate your account.
+        </p>
+        <p style="text-align:center;margin:24px 0">
+          <a href="${verifyUrl}"
+             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+            Verify my email
+          </a>
+        </p>
+        <p style="font-size:12px;color:#64748b">
+          If the button doesn't work, copy and paste this link into your browser:<br/>
+          <span style="word-break:break-all">${verifyUrl}</span>
+        </p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
+      </div>
+    `,
+  };
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      case "'": return "&#039;";
-      default: return c;
-    }
-  });
+function welcomeTemplate(name: string) {
+  const safeName = name?.trim() || "there";
+  return {
+    subject: "Welcome to CeeBank 🎉",
+    html: `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
+        </div>
+        <h2 style="margin:0 0 8px 0;color:#0f172a">Hello ${safeName}, your account is ready!</h2>
+        <p style="margin:0 0 12px 0;color:#334155">
+          Thanks for joining CeeBank. You can now log in, view your balance, transfer funds, buy airtime, pay bills, and more.
+        </p>
+        <ul style="margin:0 0 16px 18px;color:#334155">
+          <li>Secure login with JWT</li>
+          <li>Demo transfers & transactions</li>
+          <li>Responsive, modern UI</li>
+        </ul>
+        <p style="text-align:center;margin:24px 0">
+          <a href="https://ceebank.online/login"
+             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+            Go to Dashboard
+          </a>
+        </p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
+      </div>
+    `,
+  };
 }
 
-    
+function passwordResetTemplate(name: string, resetUrl: string, code?: string) {
+  const safeName = name?.trim() || "there";
+  return {
+    subject: "Reset your CeeBank password",
+    html: `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:auto;padding:24px">
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:24px;font-weight:700;color:#0e7490">CeeBank</div>
+        </div>
+        <h2 style="margin:0 0 8px 0;color:#0f172a">Hi ${safeName}, reset your password</h2>
+        <p style="margin:0 0 12px 0;color:#334155">
+          Click the button below to choose a new password.
+        </p>
+        <p style="text-align:center;margin:24px 0">
+          <a href="${resetUrl}"
+             style="background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block">
+            Reset password
+          </a>
+        </p>
+        ${
+          code
+            ? `<p style="font-size:13px;color:#334155;text-align:center">Or use this one-time code: <b>${code}</b></p>`
+            : ""
+        }
+        <p style="font-size:12px;color:#64748b">
+          If you didn’t request this, you can ignore this email.
+        </p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+        <p style="font-size:12px;color:#94a3b8">© 2025 CeeBank. All rights reserved.</p>
+      </div>
+    `,
+  };
+}
+
+/* ---------------- Public helpers ---------------- */
+
+export async function sendVerificationEmail(
+  email: string,
+  name: string,
+  verifyUrl: string
+): Promise<MailResult> {
+  const t = verificationTemplate(name, verifyUrl);
+  return sendEmail(email, t.subject, t.html);
+}
+
+export async function sendWelcomeEmail(
+  email: string,
+  name: string
+): Promise<MailResult> {
+  const t = welcomeTemplate(name);
+  return sendEmail(email, t.subject, t.html);
+}
+
+export async function sendPasswordResetEmail(
+  email: string,
+  name: string,
+  resetUrl: string,
+  code?: string
+): Promise<MailResult> {
+  const t = passwordResetTemplate(name, resetUrl, code);
+  return sendEmail(email, t.subject, t.html);
+}
