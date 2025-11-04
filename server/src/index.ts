@@ -1,48 +1,42 @@
 // server/src/index.ts
-// CeeBank API bootstrap (Express + CORS + routers)
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-
-import infoRoutes from "./routes/info";
-import authRoutes from "./routes/auth";
-import transactionsRoutes from "./routes/transactions";
-import debugRoutes from "./routes/debug";
+import authRouter from "./routes/auth";
+import infoRouter from "./routes/info";
+import txRouter from "./routes/transactions";
+import debugRouter from "./routes/debug";
 
 const app = express();
-
-// Basic hardening + JSON body parser + CORS
-app.use(helmet({
-  contentSecurityPolicy: { useDefaults: true },
-}));
-app.use(cors());
 app.use(express.json());
-app.use("/api/debug", debugRoutes);
+app.use(cors());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "upgrade-insecure-requests": null,
+        "img-src": ["'self'", "data:"],
+        "style-src": ["'self'", "https:", "'unsafe-inline'"],
+        "script-src-attr": ["'none'"],
+      },
+    },
+  }) as any
+);
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "ceebank-api", ts: new Date().toISOString() });
-});
+// health/info
+app.get("/health", (_req, res) => res.json({ ok: true, service: "ceebank-api", ts: new Date().toISOString() }));
+app.use("/api/info", infoRouter);
 
-// Mount routers (these must exist)
-app.use("/api/info", infoRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/transactions", transactionsRoutes);
+// main routers
+app.use("/api/auth", authRouter);
+app.use("/api/transactions", txRouter);
+app.use("/api/debug", debugRouter);
 
-// 404 handler for unknown API routes
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api/")) {
-    return res.status(404).json({ error: `Not found: ${req.method} ${req.path}` });
-  }
-  return next();
-});
+// 404
+app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.path}` }));
 
-// Start server
 const PORT = Number(process.env.PORT || 4000);
-app.listen(PORT, "0.0.0.0", () => {
-  // eslint-disable-next-line no-console
+app.listen(PORT, () => {
   console.log(`[ceebank-api] listening on port ${PORT}`);
 });
-
-export default app;
