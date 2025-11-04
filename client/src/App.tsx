@@ -20,6 +20,7 @@ import HomePage from "./components/HomePage";
 import DashboardLive from "./components/DashboardLive";
 import RegisterPage from "./components/RegisterPage"; // NEW
 import VerifyEmailPage from "./components/VerifyEmailPage";
+import Register from "./components/Register";s
 
 /* ---------- Nav styles ---------- */
 const navStyle: React.CSSProperties = {
@@ -99,6 +100,7 @@ function Navbar() {
                 ...(isActive ? activeStyle : {}),
               })}
             >
+             <a href="/register" className="hover:text-sky-700">Open account</a> 
               Dashboard
             </NavLink>
             <NavLink
@@ -413,6 +415,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="/register" element={<Register />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
