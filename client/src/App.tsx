@@ -249,140 +249,164 @@ function AboutPage() {
 
 /* ---------- Login (styled, now shows Create Account link) ---------- */
 function LoginPage() {
-  const nav = useNavigate();
-  const location = useLocation() as any;
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [message, setMessage] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  const [staySignedIn, setStaySignedIn] = React.useState(true);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [okMsg, setOkMsg] = React.useState<string | null>(null);
+
+  const apiBase =
+    (import.meta as any).env?.VITE_API_BASE ||
+    (window as any).__API_BASE__ ||
+    "";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+    setErr(null);
+    setOkMsg(null);
+    setBusy(true);
+
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${apiBase}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
 
-      // Store tokens (mock)
-      sessionStorage.setItem("accessToken", json.accessToken);
-      sessionStorage.setItem("refreshToken", json.refreshToken);
-      localStorage.setItem("accessToken", json.accessToken);
-      localStorage.setItem("refreshToken", json.refreshToken);
+      const json = await res.json().catch(() => ({}));
 
-      // Save name/email for Home greeting
+      if (!res.ok) {
+        throw new Error(
+          json?.error || json?.message || "Unable to sign in. Please try again."
+        );
+      }
+
+      // Save tokens and a display name for greeting
       const displayName =
-        (email.split("@")[0] || "Cynthia").replace(/[^a-zA-Z ]/g, "");
-      localStorage.setItem("displayName", displayName || "Cynthia");
+        (email.split("@")[0] || "Customer").replace(/[^a-zA-Z ]/g, "");
+      localStorage.setItem("displayName", displayName);
       localStorage.setItem("email", email);
 
-      // Redirect
-      const to = location.state?.from || "/dashboard";
-      nav(to, { replace: true });
-      setTimeout(() => (window.location.href = to), 300);
+      // Tokens (mock or real)
+      if (json?.accessToken) {
+        if (staySignedIn) {
+          localStorage.setItem("accessToken", json.accessToken);
+          json.refreshToken && localStorage.setItem("refreshToken", json.refreshToken);
+        } else {
+          sessionStorage.setItem("accessToken", json.accessToken);
+          json.refreshToken && sessionStorage.setItem("refreshToken", json.refreshToken);
+        }
+      }
 
-      setMessage("Login successful (mock). Redirecting…");
+      setOkMsg("Sign-in successful. Redirecting to your dashboard…");
+      // Small delay so the success message is visible
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 600);
     } catch (e: any) {
-      setMessage(`Login failed: ${e.message ?? e}`);
+      setErr(e?.message || "Something went wrong");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <main
-      style={{
-        minHeight: "calc(100vh - 72px)",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        background:
-          "radial-gradient(40rem 40rem at 10% -10%, rgba(37,99,235,.08), transparent 60%), radial-gradient(40rem 40rem at 110% 0%, rgba(14,165,233,.08), transparent 60%)",
-      }}
-    >
-      <section className="card" style={{ width: "100%", maxWidth: 440 }}>
-        <div style={{ marginBottom: 14, textAlign: "center" }}>
-          <img
-            src="/ceebank-logo.svg"
-            alt="CeeBank"
-            style={{ height: 44, display: "inline-block" }}
-          />
-          <h2 style={{ margin: "10px 0 0 0" }}>Sign in to CeeBank</h2>
-          <p className="text-muted" style={{ marginTop: 6 }}>
-            Access your dashboard using your email and password.
+    <Page>
+      <section className="min-h-[70vh] grid place-items-center bg-sky-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6">
+          {/* Brand */}
+          <div className="text-center mb-6">
+            <div className="mx-auto mb-2 h-12 w-12 rounded-full grid place-items-center bg-sky-100">
+              <span className="text-sky-700 font-bold">CB</span>
+            </div>
+            <h2 className="text-2xl font-semibold text-slate-900">Welcome back</h2>
+            <p className="text-slate-600">Sign in to access your CeeBank account.</p>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="Your password"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {/* Preferences + Terms (tight alignment) */}
+            <div className="mt-1.5 space-y-3">
+              {/* Stay signed in */}
+              <label className="flex items-start gap-2 select-none">
+                <input
+                  type="checkbox"
+                  className="mt-1.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  checked={staySignedIn}
+                  onChange={(e) => setStaySignedIn(e.target.checked)}
+                />
+                <span className="text-sm text-slate-700 leading-5">
+                  <span className="font-medium">Stay signed in for 30 days</span>
+                </span>
+              </label>
+
+              {/* Terms line, compact */}
+              <p className="text-xs leading-5 text-slate-500">
+                By signing in, you agree to our{" "}
+                <a href="/terms" className="text-sky-700 hover:underline">Terms of Service</a>{" "}
+                and{" "}
+                <a href="/privacy" className="text-sky-700 hover:underline">Privacy Policy</a>.
+              </p>
+            </div>
+
+            {err && (
+              <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
+                {err}
+              </div>
+            )}
+            {okMsg && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 text-sm">
+                {okMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full rounded-xl px-4 py-2.5 bg-sky-600 text-white font-medium hover:bg-sky-700 disabled:opacity-60 transition"
+            >
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <a href="/forgot" className="text-sky-700 hover:underline">Forgot password?</a>
+            <span className="text-slate-500">or</span>
+            <a href="/register" className="text-sky-700 hover:underline">Open an account</a>
+          </div>
+
+          <p className="text-center text-xs text-slate-500 mt-6">
+            © 2025 CeeBank. All rights reserved.
           </p>
         </div>
-
-        <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
-          <label className="grid">
-            <span className="kicker">Email Address</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              type="email"
-              placeholder="name@email.com"
-            />
-          </label>
-
-          <label className="grid">
-            <span className="kicker">Password</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              type="password"
-              placeholder="********"
-            />
-          </label>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input type="checkbox" defaultChecked />
-            <span className="text-muted">Stay signed in for 30 days</span>
-          </label>
-
-          <button disabled={loading} type="submit">
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-
-          {message && (
-            <p
-              style={{
-                margin: 0,
-                color: message.startsWith("Login successful")
-                  ? "#16a34a"
-                  : "#dc2626",
-              }}
-            >
-              {message}
-            </p>
-          )}
-        </form>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          <a href="#" onClick={(e) => e.preventDefault()} className="text-muted">
-            Forgot Password?
-          </a>
-          <div
-            style={{
-              background: "#f1f5f9",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: 12,
-              textAlign: "center",
-            }}
-          >
-            <span className="text-muted">Not enrolled?</span>{" "}
-            <Link to="/register">Create Account</Link>
-          </div>
-        </div>
       </section>
-    </main>
+    </Page>
   );
 }
 
