@@ -25,7 +25,7 @@ export function ensureUser(email: string): UserRecord {
     email,
     name: email.split("@")[0],
     accountNumber: randomAccountNumber(),
-    balance: 4_000_000, // seed with 1M for testing
+    balance: 1_000_000, // seed with 1M for testing
   };
   users.set(email, rec);
   return rec;
@@ -43,6 +43,12 @@ export function setPassword(email: string, passwordPlain: string) {
 export function setPin(email: string, pin: string) {
   const u = ensureUser(email);
   u.pin = pin;
+}
+
+export function verifyPin(email: string, pin: string): boolean {
+  const u = users.get(email);
+  if (!u || !u.pin) return false;
+  return u.pin === pin;
 }
 
 export function adjustBalance(email: string, delta: number): number {
