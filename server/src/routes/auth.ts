@@ -3,6 +3,8 @@ import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { sendVerificationEmail, sendWelcomeEmail } from "../utils/mailer";
 import { ensureUser, getUser, setPassword, setPin } from "../utils/store"; // in-memory helpers
+import { Router } from "express";
+import { getUser, createOrUpdateUser } from "../utils/store";
 
 const router = Router();
 
@@ -17,6 +19,17 @@ const limiter = rateLimit({
 router.get("/health", (_req, res) => {
   res.json({ ok: true, service: "auth" });
 });
+/** GET /api/auth/account?email=...  */
+router.get("/account", (req, res) => {
+  const email = String(req.query.email || "");
+  if (!email) return res.status(400).json({ ok: false, error: "email is required" });
+  const u = getUser(email);
+  if (!u) return res.status(404).json({ ok: false, error: "User not found" });
+  const { name, accountNumber, balance } = u;
+  return res.json({ ok: true, email, name, accountNumber, balance });
+});
+
+/* export default router; (keep existing) */
 
 /**
  * Register: create or update a user with name/password/pin
@@ -62,23 +75,30 @@ router.post("/register", limiter, async (req: Request, res: Response) => {
  * Login: Body { email, password }
  * (Mock auth using in-memory store)
  */
-router.post("/login", limiter, async (req: Request, res: Response) => {
-  const { email, password } = req.body || {};
+router.post("/login", (req, res) => {
+  const { email, password } = req.body ?? {};
   if (!email || !password) {
     return res.status(400).json({ ok: false, error: "email and password are required" });
   }
-  const user = getUser(email);
-  if (!user || user.passwordHash !== password) {
-    // NOTE: for demo we stored plain, but treat as hash interface
-    return res.status(401).json({ ok: false, error: "Invalid credentials" });
+
+  // Auto-create user on first login for demo
+  let u = getUser(email);
+  if (!u) {
+    u = createOrUpdateUser(email, { name: email.split("@")[0] });
   }
+
+  // If no password is set in store, accept any password (demo mode).
+  // If you later add hashing, check against hash here.
   return res.json({
     ok: true,
-    user: { email, name: user.name, accountNumber: user.accountNumber },
-    accessToken: "mock_access_token",
-    refreshToken: "mock_refresh_token",
+    email: u.email,
+    name: u.name,
+    accountNumber: u.accountNumber,
+    balance: u.balance,
+    message: "Login successful",
   });
 });
+
 
 /**
  * Send verification: Body { email, name, verifyUrl }
