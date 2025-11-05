@@ -1,100 +1,94 @@
-// src/utils/store.ts
+// server/src/utils/store.ts
 
-export type Direction = "DEBIT" | "CREDIT";
+/* -------------------- Types -------------------- */
+export type Direction = 'DEBIT' | 'CREDIT';
 
 export type Transaction = {
-  to: string;                     // owner of this ledger (same as user's email)
-  name: string;                   // display name for owner
+  to: string;                 // recipient email (or account owner email)
+  name: string;               // recipient display name
   amount: number;
   direction: Direction;
-  balance: number;                // balance AFTER this txn
+  balance: number;            // balance AFTER applying this txn
   txnRef: string;
   description?: string;
   toAccount?: string;
   toName?: string;
-  when?: string;                  // ISO timestamp
+  toEmail?: string;           // <- add optional recipient email for receipts
+  when?: string;
 };
 
 export type User = {
   email: string;
-  name?: string;
-  accountNumber?: string;
+  name: string;
+  accountNumber: string;
+  password?: string;          // demo only (not for production)
+  pin?: string;               // demo only (not for production)
   balance: number;
-  pin?: string;                   // plain or hashed; for demo, plain is fine
-  passwordHash?: string;
   transactions: Transaction[];
 };
 
-// ----- In-memory storage (replace with DB in production) -----
-const users = new Map<string, User>();
+/* -------------------- In-memory DB -------------------- */
+const db = new Map<string, User>();
 
-// Utilities
-const ensureUser = (email: string): User => {
-  let u = users.get(email);
+/* -------------------- Helpers -------------------- */
+function genAccountNumber(): string {
+  // 10-digit random
+  return String(Math.floor(1_000_000_000 + Math.random() * 9_000_000_000));
+}
+
+/* -------------------- Exports -------------------- */
+export function ensureUser(email: string, defaults: Partial<User> = {}): User {
+  let u = db.get(email);
   if (!u) {
     u = {
       email,
-      name: email.split("@")[0],
-      accountNumber: makeAccountNumber(email),
-      balance: 4_000_000,        // default balance you wanted
+      name: defaults.name ?? email.split('@')[0],
+      accountNumber: defaults.accountNumber ?? genAccountNumber(),
+      password: defaults.password,
+      pin: defaults.pin,
+      balance: defaults.balance ?? 4_000_000, // your preferred starting balance
       transactions: [],
     };
-    users.set(email, u);
+    db.set(email, u);
   }
   return u;
-};
+}
 
-const makeAccountNumber = (_seed: string) => {
-  // simple deterministic-ish number for demo; NOT for production
-  const base = Math.abs(
-    Array.from(_seed).reduce((a, c) => (a * 33 + c.charCodeAt(0)) | 0, 7)
-  );
-  return String(9000000000 + (base % 99999999)).padStart(10, "0");
-};
+export function getUser(email: string): User | undefined {
+  return db.get(email);
+}
 
-// ----- Public API your routes import -----
-export const getUser = (email: string): User | undefined => users.get(email);
-
-export const createOrUpdateUser = (email: string, data: Partial<User>): User => {
+export function setPassword(email: string, password: string): void {
   const u = ensureUser(email);
-  Object.assign(u, data);
-  users.set(email, u);
-  return u;
-};
+  u.password = password;
+}
 
-export const setBalance = (email: string, newBalance: number): number => {
-  const u = ensureUser(email);
-  u.balance = newBalance;
-  return u.balance;
-};
-
-export const listTransactions = (email: string): Transaction[] => {
-  const u = ensureUser(email);
-  return u.transactions.slice().reverse();
-};
-
-export const pushTransaction = (email: string, txn: Transaction): void => {
-  const u = ensureUser(email);
-  u.transactions.push(txn);
-};
-
-export const verifyPin = (email: string, pin: string): boolean => {
-  const u = users.get(email);
-  if (!u) return false;
-  if (!u.pin) return false;
-  return String(u.pin) === String(pin);
-};
-
-// Optional helpers (used by auth/register route in some versions)
-export const setPin = (email: string, pin: string) => {
+export function setPin(email: string, pin: string): void {
   const u = ensureUser(email);
   u.pin = pin;
-  return true;
-};
+}
 
-export const setPassword = (email: string, passwordHash: string) => {
+export function verifyPin(user: User, pin: string): boolean {
+  return !!user.pin && user.pin === pin;
+}
+
+export function setBalance(email: string, balance: number): number {
   const u = ensureUser(email);
-  u.passwordHash = passwordHash;
-  return true;
-};
+  u.balance = balance;
+  return u.balance;
+}
+
+export function recordTransaction(email: string, txn: Transaction): Transaction {
+  const u = ensureUser(email);
+  u.transactions.unshift(txn);
+  return txn;
+}
+
+export function listTransactions(email: string): Transaction[] {
+  return ensureUser(email).transactions;
+}
+
+export function snapshot(): User[] {
+  return Array.from(db.values());
+}
 
