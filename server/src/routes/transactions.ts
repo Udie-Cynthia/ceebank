@@ -15,9 +15,6 @@ const router = Router();
 /**
  * POST /api/transactions/transfer
  * Body: { email, pin, toAccount, toName, toEmail?, amount, description? }
- * Notes:
- *  - We only store the sender's transactions in the in-memory store.
- *  - Email receipts are sent (sender + optional recipient) via SES if configured.
  */
 router.post("/transfer", async (req: Request, res: Response) => {
   try {
@@ -26,56 +23,44 @@ router.post("/transfer", async (req: Request, res: Response) => {
       pin,
       toAccount,
       toName,
-      toEmail, // used only for sending a receipt, NOT stored in tx object
+      toEmail, // used only for emailing (not stored)
       amount,
       description,
     } = req.body ?? {};
 
-    // Basic validation
     if (!email || !pin || !toAccount || !toName) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing required fields." });
-    }
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Amount must be a positive number." });
+      return res.status(400).json({ ok: false, error: "Missing required fields." });
     }
 
-    // Sender lookup
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return res.status(400).json({ ok: false, error: "Amount must be a positive number." });
+    }
+
     const sender = getUser(email);
     if (!sender) {
       return res.status(404).json({ ok: false, error: "Sender not found" });
     }
 
-    // PIN check
-    const pinOk = verifyPin(email, String(pin));
-    if (!pinOk) {
+    if (!verifyPin(email, String(pin))) {
       return res.status(401).json({ ok: false, error: "Invalid PIN" });
     }
 
-    // Balance check (THIS was the CI error: do NOT assign a User to a number)
     const currentBalance: number = sender.balance;
     if (currentBalance < amt) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Insufficient funds" });
+      return res.status(400).json({ ok: false, error: "Insufficient funds" });
     }
 
-    // Generate reference & timestamps
     const nowIso = new Date().toISOString();
     const shortRef = nanoid(6).toUpperCase();
     const reference = `CB-${Date.now()}-${shortRef}`;
 
-    // Compute new balance and persist
     const newBalance = currentBalance - amt;
     setBalance(email, newBalance);
 
-    // Record the DEBIT transaction for the sender
+    // Store DEBIT txn for sender — NOTE: no 'toEmail' here
     pushTransaction(email, {
-      to: email, // owner of this ledger
+      to: email,
       name: sender.name || email,
       amount: amt,
       direction: "DEBIT",
@@ -87,7 +72,7 @@ router.post("/transfer", async (req: Request, res: Response) => {
       when: nowIso,
     });
 
-    // Fire off email receipts (best-effort; do not fail the transfer if email fails)
+    // Email receipts (best-effort)
     try {
       await sendTxnReceiptEmail({
         toEmail: email,
@@ -108,7 +93,7 @@ router.post("/transfer", async (req: Request, res: Response) => {
           toName: toName,
           type: "CREDIT",
           amount: amt,
-          balanceAfter: undefined, // unknown for recipient outside our system
+          balanceAfter: undefined, // unknown for recipient
           counterpartyName: sender.name || email,
           counterpartyAccount: sender.accountNumber,
           reference,
@@ -117,7 +102,6 @@ router.post("/transfer", async (req: Request, res: Response) => {
         });
       }
     } catch (e) {
-      // Log-only; we don't block the successful transfer on mail errors
       console.error("[mail] transfer receipt error:", (e as Error).message);
     }
 

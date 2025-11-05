@@ -29,6 +29,24 @@ router.get("/account", (req, res) => {
   return res.json({ ok: true, email, name, accountNumber, balance });
 });
 
+// ---------- GET /api/auth/account ----------
+router.get("/account", async (req, res) => {
+  try {
+    const email = (req.query.email as string)?.toLowerCase();
+    if (!email) return res.status(400).json({ ok: false, error: "Missing email" });
+
+    const { getUser } = await import("../utils/store");
+    const user = getUser(email);
+    if (!user) return res.status(404).json({ ok: false, error: "User not found" });
+
+    const { passwordHash, ...safe } = user;
+    res.json({ ok: true, ...safe });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
 /* export default router; (keep existing) */
 
 /**
