@@ -1,90 +1,118 @@
-import React, { useState } from 'react';
-import { apiPost, getSavedUser } from '../lib/api';
-
-type TransferResp =
-  | { ok: true; reference: string; balance: number; message: string }
-  | { ok: false; error: string };
+import { FormEvent, useState } from "react";
+import { transfer } from "../lib/api";
+import { useNavigate } from "react-router-dom";
 
 export default function TransferPage() {
-  const saved = getSavedUser();
+  const navigate = useNavigate();
+  const [toAccount, setToAccount] = useState("");
+  const [toName, setToName] = useState("");
+  const [toEmail, setToEmail] = useState("");
+  const [amount, setAmount] = useState<number>(0);
+  const [pin, setPin] = useState("");
+  const [description, setDescription] = useState("Transfer");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string }>({ ok: false, text: "" });
 
-  const [toAccount, setToAccount] = useState('GTB-22334455');
-  const [toName, setToName] = useState('Recipient');
-  const [amount, setAmount] = useState<number>(5000);
-  const [description, setDescription] = useState('Payment');
-  const [pin, setPin] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const email = localStorage.getItem("ceebank.email") || "";
 
-  async function submit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setOkMsg(null); setErr(null);
+    setMsg({ ok: false, text: "" });
 
-    if (!saved?.email) { setErr('You are not signed in.'); return; }
-    if (!/^\d{4}$/.test(pin)) { setErr('PIN must be exactly 4 digits.'); return; }
-    if (!amount || amount <= 0) { setErr('Amount must be greater than 0.'); return; }
+    if (!email) {
+      setMsg({ ok: false, text: "Please log in first." });
+      navigate("/login");
+      return;
+    }
+    if (!pin || pin.length !== 4) {
+      setMsg({ ok: false, text: "Enter your 4-digit transaction PIN." });
+      return;
+    }
+    if (!toAccount || !toName || !amount || amount <= 0) {
+      setMsg({ ok: false, text: "Fill in all required fields." });
+      return;
+    }
 
-    setLoading(true);
+    setBusy(true);
     try {
-      const j = await apiPost<TransferResp>('/transactions/transfer', {
-        email: saved.email,
+      const r = await transfer({
+        email,
         pin,
         toAccount,
         toName,
-        amount,
-        description
+        toEmail: toEmail || undefined,
+        amount: Number(amount),
+        description: description || undefined,
       });
-      if ('ok' in j && j.ok) {
-        setOkMsg(`${j.message}. Ref: ${j.reference}. New balance: ₦${j.balance.toLocaleString('en-NG')}`);
-        setPin('');
+
+      if (r.ok) {
+        setMsg({ ok: true, text: `Transfer successful • Ref: ${r.reference}. New balance: ₦${Number(r.balance).toLocaleString()}` });
+        // Optionally route home after a short delay
+        // setTimeout(() => navigate("/"), 1200);
       } else {
-        throw new Error(j?.error || 'Transfer failed');
+        setMsg({ ok: false, text: r.error || "Transfer failed" });
       }
-    } catch (e: any) {
-      setErr(e.message || 'Transfer failed');
+    } catch (_) {
+      setMsg({ ok: false, text: "Network error" });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-semibold mb-4">Transfer</h1>
-      <form onSubmit={submit} className="space-y-4 rounded-2xl border p-5 bg-white">
-        <div className="space-y-1">
-          <label className="text-sm font-medium">To Account</label>
-          <input className="w-full rounded-xl border px-3 py-2" value={toAccount} onChange={e=>setToAccount(e.target.value)} required />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Recipient Name</label>
-          <input className="w-full rounded-xl border px-3 py-2" value={toName} onChange={e=>setToName(e.target.value)} required />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Amount (₦)</label>
-          <input type="number" className="w-full rounded-xl border px-3 py-2"
-                 value={amount} min={1} onChange={e=>setAmount(parseInt(e.target.value || '0',10))} required />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Description</label>
-          <input className="w-full rounded-xl border px-3 py-2" value={description} onChange={e=>setDescription(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Transaction PIN (4 digits)</label>
-          <input inputMode="numeric" pattern="\d{4}" maxLength={4}
-                 className="w-full rounded-xl border px-3 py-2"
-                 value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,4))}
-                 placeholder="1234" required />
-        </div>
+    <div style={{ maxWidth: 760, margin: "22px auto", padding: "0 16px" }}>
+      <div className="card">
+        <div className="h1" style={{ marginBottom: 12 }}>Transfer</div>
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 14 }}>
+          <div>
+            <div className="small">Recipient Account *</div>
+            <input className="input" placeholder="e.g. GTB-22334455" value={toAccount} onChange={e => setToAccount(e.target.value)} />
+          </div>
 
-        {err && <div className="rounded-lg bg-red-50 text-red-700 text-sm p-3">{err}</div>}
-        {okMsg && <div className="rounded-lg bg-green-50 text-green-700 text-sm p-3">{okMsg}</div>}
+          <div>
+            <div className="small">Recipient Name *</div>
+            <input className="input" placeholder="e.g. Cynthia" value={toName} onChange={e => setToName(e.target.value)} />
+          </div>
 
-        <button type="submit" disabled={loading}
-                className="w-full rounded-xl bg-black text-white py-2.5 font-medium hover:opacity-90 disabled:opacity-60">
-          {loading ? 'Sending…' : 'Send money'}
-        </button>
-      </form>
+          <div>
+            <div className="small">Recipient Email (optional)</div>
+            <input className="input" placeholder="Email to receive receipt" value={toEmail} onChange={e => setToEmail(e.target.value)} />
+          </div>
+
+          <div>
+            <div className="small">Amount (₦) *</div>
+            <input className="input" type="number" min="1" step="1" value={amount || ""} onChange={e => setAmount(Number(e.target.value))} />
+          </div>
+
+          <div>
+            <div className="small">Description</div>
+            <input className="input" placeholder="What's this for?" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
+          <div>
+            <div className="small">4-digit PIN *</div>
+            <input className="input" type="password" inputMode="numeric" maxLength={4} placeholder="****" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0,4))} />
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6 }}>
+            <button className="button" type="submit" disabled={busy}>{busy ? "Processing…" : "Send Money"}</button>
+            <span className="small">Funds will be debited instantly.</span>
+          </div>
+
+          {msg.text && (
+            <div style={{
+              marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,.08)",
+              background: msg.ok ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
+              color: msg.ok ? "#9af7b8" : "#f7b0b0"
+            }}>
+              {msg.text}
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

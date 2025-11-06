@@ -1,37 +1,35 @@
 // client/src/lib/api.ts
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+export const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
-export async function apiGet<T>(path: string) {
-  const r = await fetch(`${API_BASE}${path}`, { credentials: 'omit' });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data as T;
+export type AccountResponse = {
+  ok: boolean;
+  email: string;
+  name: string;
+  accountNumber: string;
+  balance: number;
+};
+
+export async function getAccount(email: string): Promise<AccountResponse> {
+  const r = await fetch(`${API_BASE}/auth/account?email=${encodeURIComponent(email)}`, { credentials: "include" });
+  return r.json();
 }
 
-export async function apiPost<T>(path: string, body: any) {
-  const r = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'omit',
+export type TransferBody = {
+  email: string;
+  pin: string;
+  toAccount: string;
+  toName: string;
+  toEmail?: string;
+  amount: number;
+  description?: string;
+};
+
+export async function transfer(body: TransferBody) {
+  const r = await fetch(`${API_BASE}/transactions/transfer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(body),
   });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data as T;
-}
-
-// Minimal local user cache: we only need email (+optional name/accountNumber)
-export type SavedUser = { email: string; name?: string; accountNumber?: string };
-export function getSavedUser(): SavedUser | null {
-  try {
-    const raw = localStorage.getItem('ceebank_user');
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-export function saveUser(u: SavedUser) {
-  localStorage.setItem('ceebank_user', JSON.stringify(u));
-}
-export function clearUser() {
-  localStorage.removeItem('ceebank_user');
+  return r.json();
 }

@@ -1,45 +1,64 @@
-import { Link } from "react-router-dom";
-import QuickActions from "../components/QuickActions";
+import { useEffect, useState } from "react";
+import { getAccount } from "../lib/api";
 
-export default function Home(){
+type Account = {
+  email: string;
+  name: string;
+  accountNumber: string;
+  balance: number;
+};
+
+export default function Home() {
+  const [email, setEmail] = useState<string>(() => localStorage.getItem("ceebank.email") || "");
+  const [acct, setAcct] = useState<Account | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!email);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    async function run() {
+      if (!email) return;
+      setLoading(true);
+      setError("");
+      try {
+        const r = await getAccount(email);
+        if (!r.ok) { setError("Could not load account"); setAcct(null); }
+        else {
+          setAcct({ email: r.email, name: r.name, accountNumber: r.accountNumber, balance: r.balance });
+        }
+      } catch (e) {
+        setError("Network error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    run();
+  }, [email]);
+
   return (
-    <div className="container" style={{padding:'24px 16px 48px'}}>
-      <section className="hero card" style={{padding:'32px 24px', marginTop:16}}>
-        <h1>Modern banking that just works.</h1>
-        <p>Send money, pay bills, buy airtime, get virtual cards, and more — fast and secure.</p>
-        <div style={{display:'flex', gap:12, marginTop:6}}>
-          <Link to="/register" className="btn brand">Open an account</Link>
-          <Link to="/login" className="btn">Sign in</Link>
-        </div>
-      </section>
+    <div style={{ maxWidth: 1100, margin: "22px auto", padding: "0 16px" }}>
+      <div className="grid grid-3">
+        <div className="card" style={{ gridColumn: "span 2" }}>
+          <div className="h1">Welcome{acct?.name ? `, ${acct.name}` : ""}</div>
+          <div className="muted" style={{ marginBottom: 14 }}>
+            {acct?.accountNumber
+              ? <>Your CeeBank account number is <b>{acct.accountNumber}</b>.</>
+              : <>Sign in to view your account.</>}
+          </div>
 
-      <section style={{marginTop:24}} className="grid grid-3">
-        <div className="card">
-          <div className="kv"><span className="qicon">₦</span><div>
-            <div className="qtitle">Account Balance</div>
-            <div className="qdesc">Check your balance after signing in.</div>
-          </div></div>
+          <div className="balance">
+            {loading ? "…" : (acct ? `₦${acct.balance.toLocaleString()}` : "₦0")}
+          </div>
+          <div className="kpi">Current Balance</div>
         </div>
 
         <div className="card">
-          <div className="kv"><span className="qicon">⚡</span><div>
-            <div className="qtitle">Instant Transfers</div>
-            <div className="qdesc">Send to banks & wallets within seconds.</div>
-          </div></div>
+          <div className="h2">Profile</div>
+          <div className="small">Email</div>
+          <div style={{ marginBottom: 8 }}>{acct?.email || (email || "—")}</div>
+          <div className="small">Name</div>
+          <div>{acct?.name || "—"}</div>
         </div>
-
-        <div className="card">
-          <div className="kv"><span className="qicon">🛡</span><div>
-            <div className="qtitle">Secure by design</div>
-            <div className="qdesc">Transaction PIN and best-practice security.</div>
-          </div></div>
-        </div>
-      </section>
-
-      <section style={{marginTop:24}} className="card">
-        <h3 style={{marginTop:0}}>Quick Actions</h3>
-        <QuickActions />
-      </section>
+      </div>
     </div>
   );
 }
