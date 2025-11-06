@@ -1,58 +1,32 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Dashboard from './components/Dashboard';
+import LoginPage from './components/LoginPage';
+import Register from './components/Register';
+import QuickActions from './components/QuickActions';
+import TransferPage from './components/TransferPage';
 
-// Pages (make sure these files exist)
-import LoginPage from "./components/LoginPage";
-import Register from "./components/Register";
-import Dashboard from "./components/Dashboard";
-import VerifyEmailPage from "./components/VerifyEmailPage";
-
-// ---- Small helpers ----
-function NotFound() {
-  return (
-    <div className="min-h-[60vh] grid place-items-center px-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">404</h1>
-        <p className="text-gray-600">Page not found</p>
-        <a href="/login" className="mt-4 inline-block underline">
-          Go to Login
-        </a>
-      </div>
-    </div>
-  );
+function Home() {
+  return <Navigate to="/dashboard" replace />;
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const email = typeof window !== "undefined" ? localStorage.getItem("email") : null;
-  if (!email) return <Navigate to="/login" replace />;
-  return <>{children}</>;
-}
-
-// ---- App (single default export) ----
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Redirect root to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-
-        {/* Public routes */}
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-
-        {/* Protected routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
+        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Quick actions pages */}
+        <Route path="/actions" element={<QuickActions />} />
+        <Route path="/airtime" element={<div className="p-6">Airtime – coming soon</div>} />
+        <Route path="/bills" element={<div className="p-6">Bills – coming soon</div>} />
+        <Route path="/loans" element={<div className="p-6">Loans – coming soon</div>} />
+        <Route path="/cards" element={<div className="p-6">Virtual Cards – coming soon</div>} />
+        <Route path="/qr" element={<div className="p-6">QR Payments – coming soon</div>} />
+        <Route path="/transfer" element={<TransferPage />} />
         {/* Fallback */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<div className="p-6">Not found</div>} />
       </Routes>
     </BrowserRouter>
   );
