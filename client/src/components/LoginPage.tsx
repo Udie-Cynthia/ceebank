@@ -1,121 +1,74 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { apiPost, saveUser } from '../lib/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+type LoginResp =
+  | { ok: true; user: { email: string; name: string; accountNumber: string }; accessToken: string; refreshToken: string }
+  | { ok: false; error: string };
 
 export default function LoginPage() {
-  const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [staySignedIn, setStaySignedIn] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [stay, setStay] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new Error(j?.error || `HTTP ${r.status}`);
-      }
-      const j = await r.json();
-      // Persist what we need for Dashboard / transfers
-      localStorage.setItem('ceebank.email', email.trim());
-      localStorage.setItem('ceebank.name', j?.user?.name ?? '');
-      localStorage.setItem('ceebank.accessToken', j?.accessToken ?? '');
-      localStorage.setItem('ceebank.refreshToken', j?.refreshToken ?? '');
-      if (staySignedIn) {
-        // tiny extension: keep a flag (so you can later choose longer token TTLs)
-        localStorage.setItem('ceebank.stay', '1');
+      const j = await apiPost<LoginResp>('/auth/login', { email, password });
+      if ('ok' in j && j.ok) {
+        saveUser({ email: j.user.email, name: j.user.name, accountNumber: j.user.accountNumber });
+        window.location.href = '/';
       } else {
-        localStorage.removeItem('ceebank.stay');
+        throw new Error(j?.error || 'Login failed');
       }
-      nav('/dashboard');
     } catch (e: any) {
-      setErr(e?.message || 'Login failed');
+      setErr(e.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <img src="/ceebank-logo.svg" alt="CeeBank" className="w-8 h-8" />
-          <h1 className="text-xl font-semibold">Sign in to CeeBank</h1>
+    <div className="max-w-md mx-auto px-4 py-10">
+      <h1 className="text-2xl font-semibold mb-4">Sign In</h1>
+      <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border p-5 bg-white">
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Email</label>
+          <input className="w-full rounded-xl border px-3 py-2"
+                 type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Password</label>
+          <input className="w-full rounded-xl border px-3 py-2"
+                 type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={stay} onChange={e=>setStay(e.target.checked)} />
+            <span className="text-sm">Stay signed in for 30 days</span>
+          </label>
+          <a className="text-sm text-blue-600 hover:underline" href="#">Forgot password?</a>
+        </div>
 
-          {/* Tight checkbox pair */}
-          <div className="flex flex-col gap-2">
-            <label className="inline-flex items-center gap-2 select-none">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300"
-                checked={staySignedIn}
-                onChange={(e) => setStaySignedIn(e.target.checked)}
-              />
-              <span className="text-sm text-gray-700">Stay signed in for 30 days</span>
-            </label>
+        {err && <div className="rounded-lg bg-red-50 text-red-700 text-sm p-3">{err}</div>}
 
-            <p className="text-xs text-gray-500 leading-snug">
-              By creating an account, you agree to our&nbsp;
-              <a href="/terms" className="underline">Terms of Service</a> and&nbsp;
-              <a href="/privacy" className="underline">Privacy Policy</a>.
-            </p>
-          </div>
+        <button type="submit" disabled={loading}
+                className="w-full rounded-xl bg-black text-white py-2.5 font-medium hover:opacity-90 disabled:opacity-60">
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
 
-          {err && (
-            <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">
-              {err}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-black text-white py-2.5 font-medium hover:bg-black/90 disabled:opacity-60"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-
-          <div className="text-sm text-center text-gray-600">
-            No account? <Link to="/register" className="underline">Create one</Link>
-          </div>
-        </form>
-      </div>
+        <div className="flex items-center gap-2 text-xs text-gray-600 pt-2">
+          <span>By signing in, you agree to our</span>
+          <a className="text-blue-600 hover:underline" href="#">Terms of Service</a>
+          <span>and</span>
+          <a className="text-blue-600 hover:underline" href="#">Privacy Policy</a>
+        </div>
+      </form>
     </div>
   );
 }

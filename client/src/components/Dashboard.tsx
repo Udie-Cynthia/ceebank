@@ -1,100 +1,60 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { apiGet, getSavedUser } from '../lib/api';
+import QuickActions from './QuickActions';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
-
-type Account = {
-  email: string;
-  name: string;
-  accountNumber: string;
-  balance: number;
-};
+type AccountOk = { ok: true; email: string; name: string; accountNumber: string; balance: number };
+type AccountResp = AccountOk | { ok: false; error: string };
 
 export default function Dashboard() {
-  const [acct, setAcct] = useState<Account | null>(null);
+  const saved = getSavedUser();
+  const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const email = localStorage.getItem('ceebank.email') || '';
+  const [acct, setAcct] = useState<AccountOk | null>(null);
 
   useEffect(() => {
-    let ignore = false;
-    async function load() {
-      setErr(null);
+    (async () => {
+      setLoading(true); setErr(null);
       try {
-        if (!email) throw new Error('No email in session. Please sign in again.');
-        const u = new URL(`${API_BASE}/auth/account`);
-        u.searchParams.set('email', email);
-        const r = await fetch(u.toString());
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
-        if (!ignore) setAcct(j);
+        if (!saved?.email) throw new Error('You are not signed in.');
+        const j = await apiGet<AccountResp>(`/auth/account?email=${encodeURIComponent(saved.email)}`);
+        if ('ok' in j && j.ok) setAcct(j);
+        else throw new Error(j?.error || 'Account not found');
       } catch (e: any) {
-        if (!ignore) setErr(e?.message || 'Failed to fetch account');
+        setErr(e.message || 'Failed to fetch account');
+      } finally {
+        setLoading(false);
       }
-    }
-    load();
-    return () => { ignore = true; };
-  }, [email]);
+    })();
+  }, [saved?.email]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto p-4 md:p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <img src="/ceebank-logo.svg" alt="CeeBank" className="w-8 h-8" />
-            <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
+
+      {loading && <div className="rounded-lg border p-4">Loading account…</div>}
+      {!loading && err && <div className="rounded-lg border p-4 bg-red-50 text-red-700">{err}</div>}
+
+      {!loading && acct && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="md:col-span-2 rounded-2xl border p-5 bg-white">
+            <div className="text-sm text-gray-600">Available balance</div>
+            <div className="text-3xl font-semibold mt-1">₦{acct.balance.toLocaleString('en-NG')}</div>
+            <div className="mt-4 text-sm">
+              <div><span className="text-gray-600">Account name:</span> {acct.name}</div>
+              <div><span className="text-gray-600">Account number:</span> {acct.accountNumber}</div>
+            </div>
           </div>
-          <Link to="/transfer" className="px-3 py-2 rounded-lg bg-black text-white text-sm">New transfer</Link>
+          <div className="rounded-2xl border p-5 bg-white">
+            <div className="text-sm text-gray-600">Profile</div>
+            <div className="mt-2 text-sm">
+              <div className="font-medium">{acct.name}</div>
+              <div className="text-gray-600">{acct.email}</div>
+            </div>
+          </div>
         </div>
+      )}
 
-        {err && (
-          <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{err}</div>
-        )}
-
-        {acct && (
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <div className="col-span-2 rounded-2xl bg-white shadow p-5">
-              <div className="text-sm text-gray-500">Welcome back</div>
-              <div className="text-xl font-semibold">{acct.name}</div>
-              <div className="mt-4 text-sm text-gray-600">Account Number</div>
-              <div className="text-lg font-mono">{acct.accountNumber}</div>
-            </div>
-            <div className="rounded-2xl bg-white shadow p-5">
-              <div className="text-sm text-gray-500">Available Balance</div>
-              <div className="text-2xl font-bold">₦{acct.balance.toLocaleString()}</div>
-            </div>
-          </div>
-        )}
-
-        <QuickActions />
-      </div>
+      <QuickActions />
     </div>
-  );
-}
-
-function QuickActions() {
-  return (
-    <div className="rounded-2xl bg-white shadow p-5">
-      <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-        <ActionCard title="Buy Airtime" desc="Top up any network instantly." to="/airtime" />
-        <ActionCard title="Transfer" desc="Send money to banks & wallets." to="/transfer" />
-        <ActionCard title="Pay Bills" desc="Utility, TV, internet, more." to="/bills" />
-        <ActionCard title="Loans" desc="Quick demo loans & offers." to="/loans" />
-        <ActionCard title="Virtual Cards" desc="Create and manage virtual cards." to="/cards" />
-        <ActionCard title="QR Payments" desc="Scan & pay at merchants." to="/qr" />
-      </div>
-    </div>
-  );
-}
-
-function ActionCard({ title, desc, to }: { title: string; desc: string; to: string }) {
-  return (
-    <Link
-      to={to}
-      className="rounded-xl border border-gray-200 hover:border-black/30 p-4 transition bg-white"
-    >
-      <div className="font-medium">{title}</div>
-      <div className="text-sm text-gray-600">{desc}</div>
-    </Link>
   );
 }

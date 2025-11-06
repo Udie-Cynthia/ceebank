@@ -1,134 +1,90 @@
 import React, { useState } from 'react';
+import { apiPost, getSavedUser } from '../lib/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+type TransferResp =
+  | { ok: true; reference: string; balance: number; message: string }
+  | { ok: false; error: string };
 
 export default function TransferPage() {
-  const email = localStorage.getItem('ceebank.email') || '';
+  const saved = getSavedUser();
+
+  const [toAccount, setToAccount] = useState('GTB-22334455');
+  const [toName, setToName] = useState('Recipient');
+  const [amount, setAmount] = useState<number>(5000);
+  const [description, setDescription] = useState('Payment');
   const [pin, setPin] = useState('');
-  const [toAccount, setToAccount] = useState('');
-  const [toName, setToName] = useState('');
-  const [amount, setAmount] = useState<number | ''>('');
-  const [description, setDescription] = useState('');
-  const [ok, setOk] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  function onPinChange(v: string) {
-    const vv = v.replace(/\D/g, '').slice(0,4);
-    setPin(vv);
-  }
-
-  async function onSubmit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setOk(null); setErr(null);
-    if (!email) return setErr('No session email. Please sign in again.');
-    if (!pin || pin.length !== 4) return setErr('Enter your 4-digit PIN.');
-    if (!amount || Number(amount) <= 0) return setErr('Enter a valid amount.');
+    setOkMsg(null); setErr(null);
+
+    if (!saved?.email) { setErr('You are not signed in.'); return; }
+    if (!/^\d{4}$/.test(pin)) { setErr('PIN must be exactly 4 digits.'); return; }
+    if (!amount || amount <= 0) { setErr('Amount must be greater than 0.'); return; }
 
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/transactions/transfer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email, pin,
-          toAccount: toAccount.trim(),
-          toName: toName.trim(),
-          amount: Number(amount),
-          description: description.trim()
-        })
+      const j = await apiPost<TransferResp>('/transactions/transfer', {
+        email: saved.email,
+        pin,
+        toAccount,
+        toName,
+        amount,
+        description
       });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
-      setOk(j?.message || 'Transfer successful');
+      if ('ok' in j && j.ok) {
+        setOkMsg(`${j.message}. Ref: ${j.reference}. New balance: ₦${j.balance.toLocaleString('en-NG')}`);
+        setPin('');
+      } else {
+        throw new Error(j?.error || 'Transfer failed');
+      }
     } catch (e: any) {
-      setErr(e?.message || 'Transfer failed');
+      setErr(e.message || 'Transfer failed');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-xl mx-auto p-4 md:p-8">
-        <h1 className="text-2xl font-semibold mb-6">Transfer</h1>
+    <div className="max-w-xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-semibold mb-4">Transfer</h1>
+      <form onSubmit={submit} className="space-y-4 rounded-2xl border p-5 bg-white">
+        <div className="space-y-1">
+          <label className="text-sm font-medium">To Account</label>
+          <input className="w-full rounded-xl border px-3 py-2" value={toAccount} onChange={e=>setToAccount(e.target.value)} required />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Recipient Name</label>
+          <input className="w-full rounded-xl border px-3 py-2" value={toName} onChange={e=>setToName(e.target.value)} required />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Amount (₦)</label>
+          <input type="number" className="w-full rounded-xl border px-3 py-2"
+                 value={amount} min={1} onChange={e=>setAmount(parseInt(e.target.value || '0',10))} required />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Description</label>
+          <input className="w-full rounded-xl border px-3 py-2" value={description} onChange={e=>setDescription(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Transaction PIN (4 digits)</label>
+          <input inputMode="numeric" pattern="\d{4}" maxLength={4}
+                 className="w-full rounded-xl border px-3 py-2"
+                 value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,4))}
+                 placeholder="1234" required />
+        </div>
 
-        {err && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{err}</div>}
-        {ok && <div className="mb-4 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2">{ok}</div>}
+        {err && <div className="rounded-lg bg-red-50 text-red-700 text-sm p-3">{err}</div>}
+        {okMsg && <div className="rounded-lg bg-green-50 text-green-700 text-sm p-3">{okMsg}</div>}
 
-        <form onSubmit={onSubmit} className="space-y-4 bg-white rounded-2xl shadow p-5">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">To Account</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-                value={toAccount}
-                onChange={(e) => setToAccount(e.target.value)}
-                placeholder="GTB-22334455"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Recipient Name</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-                value={toName}
-                onChange={(e) => setToName(e.target.value)}
-                placeholder="Ada"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Amount (NGN)</label>
-              <input
-                type="number"
-                min={1}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="5000"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">PIN (4 digits)</label>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20 tracking-widest"
-                value={pin}
-                onChange={(e) => onPinChange(e.target.value)}
-                placeholder="1234"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <input
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Payment for…"
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-lg bg-black text-white px-4 py-2.5 font-medium hover:bg-black/90 disabled:opacity-60"
-            >
-              {loading ? 'Sending…' : 'Send money'}
-            </button>
-          </div>
-        </form>
-      </div>
+        <button type="submit" disabled={loading}
+                className="w-full rounded-xl bg-black text-white py-2.5 font-medium hover:opacity-90 disabled:opacity-60">
+          {loading ? 'Sending…' : 'Send money'}
+        </button>
+      </form>
     </div>
   );
 }
