@@ -1,111 +1,134 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-const API = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function TransferPage() {
+  const email = localStorage.getItem('ceebank.email') || '';
+  const [pin, setPin] = useState('');
   const [toAccount, setToAccount] = useState('');
   const [toName, setToName] = useState('');
-  const [toEmail, setToEmail] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
   const [description, setDescription] = useState('');
-  const [pin, setPin] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [ok, setOk] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const email = localStorage.getItem('ceebank_email') || '';
+  function onPinChange(v: string) {
+    const vv = v.replace(/\D/g, '').slice(0,4);
+    setPin(vv);
+  }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return alert('Please log in again.');
-    if (!amount || amount <= 0) return alert('Enter a valid amount.');
-    if (pin.length !== 4) return alert('PIN must be 4 digits.');
+    setOk(null); setErr(null);
+    if (!email) return setErr('No session email. Please sign in again.');
+    if (!pin || pin.length !== 4) return setErr('Enter your 4-digit PIN.');
+    if (!amount || Number(amount) <= 0) return setErr('Enter a valid amount.');
 
-    setSubmitting(true);
+    setLoading(true);
     try {
-      const r = await fetch(`${API}/api/transactions/transfer`, {
+      const r = await fetch(`${API_BASE}/transactions/transfer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
-          pin,
-          toAccount,
-          toName,
-          toEmail: toEmail || undefined,
+          email, pin,
+          toAccount: toAccount.trim(),
+          toName: toName.trim(),
           amount: Number(amount),
-          description: description || undefined,
-        }),
+          description: description.trim()
+        })
       });
-      const data = await r.json();
-      if (!r.ok || !data.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      alert(`Success! Ref: ${data.reference}\nNew balance: ₦${data.balance.toLocaleString()}`);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
+      setOk(j?.message || 'Transfer successful');
     } catch (e: any) {
-      alert(`Transfer failed: ${e.message}`);
+      setErr(e?.message || 'Transfer failed');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Transfer</h1>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <Field label="Destination Account" value={toAccount} onChange={setToAccount} placeholder="GTB-22334455" />
-        <Field label="Recipient Name" value={toName} onChange={setToName} placeholder="John Doe" />
-        <Field label="Recipient Email (optional)" value={toEmail} onChange={setToEmail} type="email" placeholder="john@email.com" />
-        <Field
-          label="Amount (NGN)"
-          value={amount}
-          onChange={(v) => setAmount(v.replace(/\D/g, '') ? Number(v.replace(/\D/g, '')) : '')}
-          inputMode="numeric"
-          placeholder="5000"
-        />
-        <Field label="Description (optional)" value={description} onChange={setDescription} placeholder="Rent, food, etc." />
-        <Field
-          label="Transaction PIN (4 digits)"
-          value={pin}
-          onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-          type="password"
-          placeholder="1234"
-        />
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-xl mx-auto p-4 md:p-8">
+        <h1 className="text-2xl font-semibold mb-6">Transfer</h1>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
-        >
-          {submitting ? 'Sending…' : 'Send'}
-        </button>
-      </form>
-    </div>
-  );
-}
+        {err && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{err}</div>}
+        {ok && <div className="mb-4 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2">{ok}</div>}
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  inputMode,
-}: {
-  label: string;
-  value: any;
-  onChange: (v: string) => void;
-  type?: string;
-  placeholder?: string;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="block text-sm">{label}</label>
-      <input
-        className="w-full border rounded-lg px-3 py-2"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        type={type}
-        placeholder={placeholder}
-        inputMode={inputMode}
-      />
+        <form onSubmit={onSubmit} className="space-y-4 bg-white rounded-2xl shadow p-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">To Account</label>
+              <input
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+                value={toAccount}
+                onChange={(e) => setToAccount(e.target.value)}
+                placeholder="GTB-22334455"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Recipient Name</label>
+              <input
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+                value={toName}
+                onChange={(e) => setToName(e.target.value)}
+                placeholder="Ada"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Amount (NGN)</label>
+              <input
+                type="number"
+                min={1}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="5000"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">PIN (4 digits)</label>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20 tracking-widest"
+                value={pin}
+                onChange={(e) => onPinChange(e.target.value)}
+                placeholder="1234"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <input
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Payment for…"
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-black text-white px-4 py-2.5 font-medium hover:bg-black/90 disabled:opacity-60"
+            >
+              {loading ? 'Sending…' : 'Send money'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

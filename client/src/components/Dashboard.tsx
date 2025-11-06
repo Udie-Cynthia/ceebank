@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-type AccountResp = {
-  ok: boolean;
+type Account = {
   email: string;
   name: string;
   accountNumber: string;
@@ -12,69 +11,89 @@ type AccountResp = {
 };
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [acct, setAcct] = useState<AccountResp | null>(null);
-  const email = localStorage.getItem('ceebank_email') || '';
+  const [acct, setAcct] = useState<Account | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const email = localStorage.getItem('ceebank.email') || '';
 
   useEffect(() => {
-    (async () => {
+    let ignore = false;
+    async function load() {
+      setErr(null);
       try {
-        if (!email) throw new Error('No email in session. Please log in.');
-        const r = await fetch(`${API}/api/auth/account?email=${encodeURIComponent(email)}`);
-        if (!r.ok) throw new Error(`Account HTTP ${r.status}`);
-        const data = await r.json();
-        if (!data.ok) throw new Error('Account error');
-        setAcct(data);
+        if (!email) throw new Error('No email in session. Please sign in again.');
+        const u = new URL(`${API_BASE}/auth/account`);
+        u.searchParams.set('email', email);
+        const r = await fetch(u.toString());
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
+        if (!ignore) setAcct(j);
       } catch (e: any) {
-        alert(e.message);
-      } finally {
-        setLoading(false);
+        if (!ignore) setErr(e?.message || 'Failed to fetch account');
       }
-    })();
+    }
+    load();
+    return () => { ignore = true; };
   }, [email]);
 
-  if (loading) return <div className="p-6">Loading dashboard…</div>;
-  if (!acct?.ok) return <div className="p-6 text-red-600">Couldn’t load your account.</div>;
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Welcome back, {acct.name}</h1>
-        <Link to="/transfer" className="underline">Make a Transfer</Link>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-5xl mx-auto p-4 md:p-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <img src="/ceebank-logo.svg" alt="CeeBank" className="w-8 h-8" />
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+          </div>
+          <Link to="/transfer" className="px-3 py-2 rounded-lg bg-black text-white text-sm">New transfer</Link>
+        </div>
 
-      <div className="rounded-xl border p-4">
-        <div className="text-gray-600">Account</div>
-        <div className="text-lg font-medium">{acct.accountNumber}</div>
-        <div className="mt-2 text-gray-600">Balance</div>
-        <div className="text-2xl font-semibold">₦{acct.balance.toLocaleString()}</div>
-      </div>
+        {err && (
+          <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{err}</div>
+        )}
 
-      <QuickActionsInline />
-    </div>
-  );
-}
+        {acct && (
+          <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <div className="col-span-2 rounded-2xl bg-white shadow p-5">
+              <div className="text-sm text-gray-500">Welcome back</div>
+              <div className="text-xl font-semibold">{acct.name}</div>
+              <div className="mt-4 text-sm text-gray-600">Account Number</div>
+              <div className="text-lg font-mono">{acct.accountNumber}</div>
+            </div>
+            <div className="rounded-2xl bg-white shadow p-5">
+              <div className="text-sm text-gray-500">Available Balance</div>
+              <div className="text-2xl font-bold">₦{acct.balance.toLocaleString()}</div>
+            </div>
+          </div>
+        )}
 
-function QuickActionsInline() {
-  return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Quick Actions</h2>
-      <div className="grid grid-cols-2 gap-3">
-        <ActionTile to="/airtime" title="Buy Airtime" desc="Top up any network instantly." />
-        <ActionTile to="/transfer" title="Transfer" desc="Send money to banks & wallets." />
-        <ActionTile to="/bills" title="Pay Bills" desc="Utility, TV, internet, more." />
-        <ActionTile to="/loans" title="Loans" desc="Quick demo loans & offers." />
-        <ActionTile to="/cards" title="Virtual Cards" desc="Create and manage virtual cards." />
-        <ActionTile to="/qr" title="QR Payments" desc="Scan & pay at merchants." />
+        <QuickActions />
       </div>
     </div>
   );
 }
 
-function ActionTile({ to, title, desc }: { to: string; title: string; desc: string }) {
+function QuickActions() {
   return (
-    <Link to={to} className="rounded-xl p-4 shadow hover:shadow-md block">
-      <div className="font-semibold">{title}</div>
+    <div className="rounded-2xl bg-white shadow p-5">
+      <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        <ActionCard title="Buy Airtime" desc="Top up any network instantly." to="/airtime" />
+        <ActionCard title="Transfer" desc="Send money to banks & wallets." to="/transfer" />
+        <ActionCard title="Pay Bills" desc="Utility, TV, internet, more." to="/bills" />
+        <ActionCard title="Loans" desc="Quick demo loans & offers." to="/loans" />
+        <ActionCard title="Virtual Cards" desc="Create and manage virtual cards." to="/cards" />
+        <ActionCard title="QR Payments" desc="Scan & pay at merchants." to="/qr" />
+      </div>
+    </div>
+  );
+}
+
+function ActionCard({ title, desc, to }: { title: string; desc: string; to: string }) {
+  return (
+    <Link
+      to={to}
+      className="rounded-xl border border-gray-200 hover:border-black/30 p-4 transition bg-white"
+    >
+      <div className="font-medium">{title}</div>
       <div className="text-sm text-gray-600">{desc}</div>
     </Link>
   );

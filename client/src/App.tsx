@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
@@ -18,15 +19,17 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/transfer" element={<TransferPage />} />
-      <Route path="/airtime" element={<AirtimePage />} />
-      <Route path="/bills" element={<BillsPage />} />
-      <Route path="/loans" element={<LoansPage />} />
-      <Route path="/cards" element={<CardsPage />} />
-      <Route path="/qr" element={<QRPage />} />
+       <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/transfer" element={<TransferPage />} />
+        {/* Optional placeholders: */}
+        <Route path="/airtime" element={<div className="p-6">Airtime — coming soon</div>} />
+        <Route path="/bills" element={<div className="p-6">Bills — coming soon</div>} />
+        <Route path="/loans" element={<div className="p-6">Loans — coming soon</div>} />
+        <Route path="/cards" element={<div className="p-6">Virtual Cards — coming soon</div>} />
+        <Route path="/qr" element={<div className="p-6">QR Payments — coming soon</div>} />
       </Routes>
     </BrowserRouter>
   );

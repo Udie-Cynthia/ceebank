@@ -1,133 +1,121 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
-const API_BASE: string = (import.meta as any).env?.VITE_API_BASE || "";
-
-type LoginResponse =
-  | {
-      ok: true;
-      user: { email: string; name: string; accountNumber: string };
-      accessToken: string;
-      refreshToken: string;
-    }
-  | { ok: false; error: string };
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function LoginPage() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [stay, setStay] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [staySignedIn, setStaySignedIn] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const r = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-
       if (!r.ok) {
-        // Typical backend sends 401 with a JSON { ok:false, error:"..." }
-        let msg = `HTTP ${r.status}`;
-        try {
-          const j = (await r.json()) as LoginResponse;
-          if ("ok" in j && j.ok === false && j.error) msg = j.error;
-        } catch {
-          /* ignore */
-        }
-        setErr(`Login failed: ${msg}`);
-        return;
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || `HTTP ${r.status}`);
       }
-
-      const data = (await r.json()) as LoginResponse;
-      if ("ok" in data && data.ok) {
-        // if you later wire real tokens, store them when stay==true
-        if (stay) {
-          localStorage.setItem("ceebank_user", JSON.stringify(data.user));
-        } else {
-          sessionStorage.setItem("ceebank_user", JSON.stringify(data.user));
-        }
-        nav("/");
+      const j = await r.json();
+      // Persist what we need for Dashboard / transfers
+      localStorage.setItem('ceebank.email', email.trim());
+      localStorage.setItem('ceebank.name', j?.user?.name ?? '');
+      localStorage.setItem('ceebank.accessToken', j?.accessToken ?? '');
+      localStorage.setItem('ceebank.refreshToken', j?.refreshToken ?? '');
+      if (staySignedIn) {
+        // tiny extension: keep a flag (so you can later choose longer token TTLs)
+        localStorage.setItem('ceebank.stay', '1');
       } else {
-        setErr((data as any).error || "Login failed");
+        localStorage.removeItem('ceebank.stay');
       }
+      nav('/dashboard');
     } catch (e: any) {
-      setErr(e?.message || "Network error");
+      setErr(e?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-semibold">Welcome back</h1>
-      <p className="text-sm text-gray-600 mt-1">Sign in to your CeeBank account.</p>
-
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            className="mt-1 w-full border rounded-lg p-2"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-            required
-          />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <img src="/ceebank-logo.svg" alt="CeeBank" className="w-8 h-8" />
+          <h1 className="text-xl font-semibold">Sign in to CeeBank</h1>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium">Password</label>
-          <input
-            className="mt-1 w-full border rounded-lg p-2"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-
-        {/* Tighter checkbox row */}
-        <div className="mt-1 flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
-              type="checkbox"
-              className="size-4 accent-black align-middle"
-              checked={stay}
-              onChange={(e) => setStay(e.target.checked)}
+              type="email"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
             />
-            <span className="leading-none">Stay signed in for 30 days</span>
-          </label>
-          <a href="#" className="text-sm text-blue-600 hover:underline">
-            Forgot password?
-          </a>
-        </div>
+          </div>
 
-        {err && <div className="text-sm text-red-600">{err}</div>}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
 
-        <button
-          className="w-full rounded-lg bg-black text-white p-2 font-medium disabled:opacity-60"
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
+          {/* Tight checkbox pair */}
+          <div className="flex flex-col gap-2">
+            <label className="inline-flex items-center gap-2 select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={staySignedIn}
+                onChange={(e) => setStaySignedIn(e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Stay signed in for 30 days</span>
+            </label>
 
-        <div className="text-sm text-center">
-          New here?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Create an account
-          </Link>
-        </div>
-      </form>
+            <p className="text-xs text-gray-500 leading-snug">
+              By creating an account, you agree to our&nbsp;
+              <a href="/terms" className="underline">Terms of Service</a> and&nbsp;
+              <a href="/privacy" className="underline">Privacy Policy</a>.
+            </p>
+          </div>
+
+          {err && (
+            <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">
+              {err}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-black text-white py-2.5 font-medium hover:bg-black/90 disabled:opacity-60"
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+
+          <div className="text-sm text-center text-gray-600">
+            No account? <Link to="/register" className="underline">Create one</Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
