@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import QuickActions from "./QuickActions";
 
 type Account = {
   email: string;
@@ -8,68 +8,80 @@ type Account = {
   balance: number;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
-
 export default function Dashboard() {
   const [acct, setAcct] = useState<Account | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const email = localStorage.getItem("ceebank_email") || "";
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    const email =
+      localStorage.getItem("ceebank.email") ||
+      sessionStorage.getItem("ceebank.email");
+
     if (!email) {
-      setError("Please login first.");
+      setErr("Please sign in to view your account.");
+      setLoading(false);
       return;
     }
-    fetch(`${API_BASE}/auth/account?email=${encodeURIComponent(email)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((data) => {
-        if (data?.ok) setAcct(data as Account);
-        else setError(data?.error || "Could not load account");
-      })
-      .catch(() => setError("Network error loading account"));
-  }, [email]);
+
+    const fetchAcct = async () => {
+      try {
+        const r = await fetch(`/api/auth/account?email=${encodeURIComponent(email)}`);
+        const j = await r.json();
+        if (!r.ok || j.ok === false) {
+          setErr(j.error || `Error ${r.status}`);
+        } else {
+          // API returns shape: { ok:true, email, name, accountNumber, balance }
+          const a: Account = {
+            email: j.email,
+            name: j.name,
+            accountNumber: j.accountNumber,
+            balance: Number(j.balance ?? 0),
+          };
+          setAcct(a);
+        }
+      } catch (e: any) {
+        setErr(e?.message || "Failed to load account");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAcct();
+  }, []);
 
   return (
-    <main className="min-h-[calc(100vh-64px)] bg-[#F7FAFC] text-slate-800">
-      <section className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold">
-            {acct ? `Hello ${acct.name}, welcome to your CeeBank account` : "Dashboard"}
-          </h1>
-          {acct && (
-            <p className="mt-2 text-slate-600">
-              Account Number: <span className="font-mono">{acct.accountNumber}</span> • Balance:{" "}
-              <span className="font-semibold">₦{acct.balance.toLocaleString()}</span>
-            </p>
-          )}
-          {error && <p className="mt-2 text-rose-600">{error}</p>}
-        </div>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-        {/* Quick actions */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            { to: "/airtime", title: "Buy Airtime", desc: "Top up any network instantly." },
-            { to: "/transfer", title: "Transfer", desc: "Send money to banks & wallets." },
-            { to: "/bills", title: "Pay Bills", desc: "Utility, TV, internet, more." },
-            { to: "/loans", title: "Loans", desc: "Instant loans & offers." },
-            { to: "/cards", title: "Virtual Cards", desc: "Create and manage virtual cards." },
-            { to: "/qr", title: "QR Payments", desc: "Scan & pay at merchants." },
-          ].map((card) => (
-            <Link
-              key={card.title}
-              to={card.to}
-              className="block rounded-xl bg-white border border-slate-200 p-5 hover:shadow-md transition"
-            >
-              <div className="text-lg font-medium">{card.title}</div>
-              <div className="text-sm text-slate-600">{card.desc}</div>
-            </Link>
-          ))}
+      {loading && <div className="mt-4 text-gray-600">Loading account…</div>}
+
+      {!loading && err && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 p-3">
+          {err}
         </div>
-      </section>
-      <footer className="border-t border-slate-200 py-4 text-center text-sm text-slate-500">
-        © 2025 Cynthia Ud ie. All rights reserved.
-      </footer>
-    </main>
+      )}
+
+      {!loading && acct && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="text-sm text-gray-500">Welcome</div>
+            <div className="text-lg font-medium mt-1">{acct.name}</div>
+            <div className="text-sm text-gray-500 mt-1">
+              Account Number: <span className="font-mono">{acct.accountNumber}</span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="text-sm text-gray-500">Available Balance</div>
+            <div className="text-2xl font-semibold mt-1">
+              ₦{(acct.balance ?? 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <QuickActions />
+    </div>
   );
 }

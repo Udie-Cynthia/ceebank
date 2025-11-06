@@ -1,31 +1,33 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+
+const actions = [
+  { to: "/airtime", title: "Buy Airtime", desc: "Top up any network instantly." },
+  { to: "/transfer", title: "Transfer", desc: "Send money to banks & wallets." },
+  { to: "/bills", title: "Pay Bills", desc: "Utility, TV, internet, more." },
+  { to: "/loans", title: "Loans", desc: "Quick loans & offers." },
+  { to: "/cards", title: "Virtual Cards", desc: "Create & manage virtual cards." },
+  { to: "/qr", title: "QR Payments", desc: "Scan & pay at merchants." },
+];
 
 export default function QuickActions() {
-  const nav = useNavigate();
-  const go = (path: string) => () => nav(path);
-
-  const Card = (p: { title: string; subtitle: string; onClick?: () => void; gradient: string }) => (
-    <div className="card" style={{
-      background: p.gradient,
-      border: "1px solid rgba(255,255,255,.08)",
-      cursor: p.onClick ? "pointer" : "default"
-    }} onClick={p.onClick}>
-      <div className="h2">{p.title}</div>
-      <div className="muted">{p.subtitle}</div>
-    </div>
-  );
-
   return (
-    <div style={{ maxWidth: 1100, margin: "22px auto", padding: "0 16px" }}>
-      <div className="grid grid-3">
-        <Card title="Buy Airtime" subtitle="Top up any network instantly." gradient="linear-gradient(180deg,#173358,#0e1d35)" />
-        <Card title="Transfer" subtitle="Send money to banks & wallets." gradient="linear-gradient(180deg,#1b3b6a,#0f2541)" onClick={go('/transfer')} />
-        <Card title="Pay Bills" subtitle="Utility, TV, internet, more." gradient="linear-gradient(180deg,#2b2f52,#191c30)" />
-        <Card title="Loans" subtitle="Quick loans & offers." gradient="linear-gradient(180deg,#27402f,#16261c)" />
-        <Card title="Virtual Cards" subtitle="Create & manage virtual cards." gradient="linear-gradient(180deg,#3a2b43,#241b2b)" />
-        <Card title="QR Payments" subtitle="Scan & pay at merchants." gradient="linear-gradient(180deg,#3a3030,#231a1a)" />
+    <section className="max-w-6xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {actions.map((a) => (
+          <Link
+            key={a.to}
+            to={a.to}
+            className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition"
+          >
+            <div className="text-base font-medium">{a.title}</div>
+            <div className="text-sm text-gray-600 mt-1">{a.desc}</div>
+          </Link>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
+
 

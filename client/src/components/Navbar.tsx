@@ -1,24 +1,24 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar() {
   return (
-    <header className="w-full bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-50">
-      <nav className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <img src="/ceebank-logo.svg" alt="CeeBank" className="h-12 w-auto" />
-          <span className="text-2xl font-semibold text-slate-800 tracking-wide">CeeBank</span>
+    <header className="border-b border-gray-200 bg-white/80 backdrop-blur">
+      <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <Link to="/" className="inline-flex items-center gap-2">
+          <img src="/ceebank-logo.svg" alt="CeeBank" className="h-6 w-6" />
+          <span className="text-lg font-semibold">CeeBank</span>
         </Link>
-        <div className="flex items-center gap-6">
-          <Link className="text-slate-700 hover:text-sky-600 transition" to="/">Home</Link>
-          <Link className="text-slate-700 hover:text-sky-600 transition" to="/about">About</Link>
-          <Link className="text-slate-700 hover:text-sky-600 transition" to="/dashboard">Dashboard</Link>
-          <Link className="text-slate-700 hover:text-sky-600 transition" to="/transfer">Transfer</Link>
-          <Link className="px-3 py-1.5 rounded-md bg-sky-500 text-white hover:bg-sky-600 transition" to="/login">
-            Sign in
-          </Link>
+
+        <div className="flex items-center gap-6 text-sm">
+          <NavLink to="/" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Home</NavLink>
+          <NavLink to="/about" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>About</NavLink>
+          <NavLink to="/dashboard" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Dashboard</NavLink>
+          <NavLink to="/transfer" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Transfer</NavLink>
+          <NavLink to="/login" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Sign in</NavLink>
         </div>
       </nav>
     </header>
   );
 }
+
 
