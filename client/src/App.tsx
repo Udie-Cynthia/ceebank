@@ -1,50 +1,51 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
-import Dashboard from './components/Dashboard';
-import LoginPage from './components/LoginPage';
-import Register from './components/Register';
-import TransferPage from './components/TransferPage';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import About from "./pages/About";
 
-function TopNav() {
-  return (
-    <header className="border-b bg-white">
-      <div className="max-w-6xl mx-auto h-14 px-4 flex items-center justify-between">
-        <Link to="/" className="font-semibold">CeeBank</Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link to="/">Dashboard</Link>
-          <Link to="/transfer">Transfer</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/register">Register</Link>
-        </nav>
-      </div>
-    </header>
-  );
-}
+/* Existing pages you already have */
+import LoginPage from "./components/LoginPage";
+import Register from "./components/Register";
+import Dashboard from "./components/Dashboard";
+import TransferPage from "./components/TransferPage";
 
-function Footer() {
+/* Minimal placeholder pages for quick actions */
+function Placeholder({ title }: { title: string }) {
   return (
-    <footer className="border-t mt-10">
-      <div className="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-500">
-        © {new Date().getFullYear()} CeeBank
-      </div>
-    </footer>
+    <main className="mx-auto max-w-3xl px-4 py-12">
+      <h1 className="text-2xl font-bold">{title}</h1>
+      <p className="mt-2 text-gray-600">Demo page — feature wiring in progress.</p>
+    </main>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <TopNav />
-      <main className="min-h-[calc(100vh-140px)] bg-gray-50">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/transfer" element={<TransferPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <Footer />
+      <Navbar />
+      <Routes>
+        {/* Top-level routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+
+        {/* Auth */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* App */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/transfer" element={<TransferPage />} />
+
+        {/* Quick actions destinations */}
+        <Route path="/airtime" element={<Placeholder title="Buy Airtime" />} />
+        <Route path="/pay-bills" element={<Placeholder title="Pay Bills" />} />
+        <Route path="/loans" element={<Placeholder title="Loans" />} />
+        <Route path="/cards" element={<Placeholder title="Virtual Cards" />} />
+        <Route path="/qr" element={<Placeholder title="QR Payments" />} />
+
+        {/* Catch-all → Home */}
+        <Route path="*" element={<Home />} />
+      </Routes>
     </BrowserRouter>
   );
 }

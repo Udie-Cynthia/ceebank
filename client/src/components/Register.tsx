@@ -81,12 +81,15 @@ export default function Register() {
           <span className="text-sm">Stay signed in for 30 days</span>
         </label>
 
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={agree} onChange={e=>setAgree(e.target.checked)} />
-          <span className="text-sm">
-            By creating an account, you agree to our <a className="text-blue-600 hover:underline" href="#">Terms of Service</a> and <a className="text-blue-600 hover:underline" href="#">Privacy Policy</a>.
-          </span>
+        <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+        <input type="checkbox" className="mt-1 h-4 w-4" />
+        <span>
+         By creating an account, you agree to our{" "}
+        <a href="#" className="underline">Terms of Service</a> and{" "}
+        <a href="#" className="underline">Privacy Policy</a>.
+        </span>
         </label>
+
 
         {err && <div className="rounded-lg bg-red-50 text-red-700 text-sm p-3">{err}</div>}
         {okMsg && <div className="rounded-lg bg-green-50 text-green-700 text-sm p-3">{okMsg}</div>}

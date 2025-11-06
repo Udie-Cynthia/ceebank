@@ -48,10 +48,11 @@ export default function LoginPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={stay} onChange={e=>setStay(e.target.checked)} />
-            <span className="text-sm">Stay signed in for 30 days</span>
+          <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4" />
+          <span>Stay signed in for 30 days</span>
           </label>
+
           <a className="text-sm text-blue-600 hover:underline" href="#">Forgot password?</a>
         </div>
 

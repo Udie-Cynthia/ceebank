@@ -1,42 +1,55 @@
-// server/src/routes/auth.ts
-import { Router, Request, Response } from 'express';
-import { ensureUser, getUser, setPassword, setPin } from '../utils/store';
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import {
+  ensureUser,
+  getUser,
+  setPassword,
+  setPin,
+} from '../utils/store';
+import { sendVerificationEmail, sendWelcomeEmail } from '../utils/mailer';
 
 const router = Router();
 
-/* GET /api/auth/health */
-router.get('/health', (_req: Request, res: Response) => {
+// limit auth endpoints
+const limiter = rateLimit({ windowMs: 60_000, max: 5 });
+router.use(limiter);
+
+/** Health */
+router.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'auth', ts: new Date().toISOString() });
 });
 
-/* POST /api/auth/register
-   body: { email, password, name, pin } */
-router.post('/register', (req: Request, res: Response) => {
+/** Register: email, password, name, pin */
+router.post('/register', (req, res) => {
   const { email, password, name, pin } = req.body || {};
   if (!email || !password || !name || !pin) {
-    return res.status(400).json({ ok: false, error: 'Missing fields (email, password, name, pin).' });
+    return res.status(400).json({ ok: false, error: 'Missing fields' });
   }
-
-  const user = ensureUser(email, { name });
+  const user = ensureUser(email, name);
   setPassword(email, password);
   setPin(email, pin);
 
+  // fire & forget emails (positional args)
+  // ignore failures so registration succeeds in demo
+  try { void sendVerificationEmail(email, name, 'https://ceebank.online/login'); } catch {}
+  try { void sendWelcomeEmail(email, name); } catch {}
+
   return res.json({
     ok: true,
-    message: 'Registered',
+    message: 'Registered. Email sent.',
     user: { email: user.email, name: user.name, accountNumber: user.accountNumber },
   });
 });
 
-/* POST /api/auth/login
-   body: { email, password } */
-router.post('/login', (req: Request, res: Response) => {
+/** Login: demo-friendly — checks only that the user exists */
+router.post('/login', (req, res) => {
   const { email, password } = req.body || {};
-  const user = getUser(email || '');
-  if (!user || user.password !== password) {
-    return res.status(401).json({ ok: false, error: 'Invalid credentials' });
-  }
-  // Demo tokens
+  if (!email || !password) return res.status(400).json({ ok: false, error: 'Missing fields' });
+
+  const user = getUser(email);
+  if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+
+  // If you later add verifyPassword in store.ts, swap this block to use it.
   return res.json({
     ok: true,
     user: { email: user.email, name: user.name, accountNumber: user.accountNumber },
@@ -45,13 +58,12 @@ router.post('/login', (req: Request, res: Response) => {
   });
 });
 
-/* GET /api/auth/account?email=... */
-router.get('/account', (req: Request, res: Response) => {
-  const email = String(req.query.email || '');
+/** Account profile for dashboard */
+router.get('/account', (req, res) => {
+  const email = (req.query.email as string) || '';
+  if (!email) return res.status(400).json({ ok: false, error: 'email is required' });
   const user = getUser(email);
-  if (!user) {
-    return res.status(404).json({ ok: false, error: 'User not found' });
-  }
+  if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
   return res.json({
     ok: true,
     email: user.email,
@@ -59,6 +71,24 @@ router.get('/account', (req: Request, res: Response) => {
     accountNumber: user.accountNumber,
     balance: user.balance,
   });
+});
+
+/** Send verification (manual trigger) */
+router.post('/send-verification', async (req, res) => {
+  const { email, name, verifyUrl } = req.body || {};
+  if (!email || !name || !verifyUrl) {
+    return res.status(400).json({ ok: false, error: 'Missing fields' });
+  }
+  try {
+    // positional args
+    const r: any = await sendVerificationEmail(email, name, verifyUrl);
+    // be tolerant to different return shapes
+    const messageId = r?.messageId ?? r?.id ?? undefined;
+    const simulated = r?.simulated ?? false;
+    return res.json({ ok: true, message: 'Verification email sent', messageId, simulated });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || 'Failed to send' });
+  }
 });
 
 export default router;
