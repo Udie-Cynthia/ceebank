@@ -1,125 +1,183 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-const API = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE: string = (import.meta as any).env?.VITE_API_BASE || "";
+
+type RegisterResponse =
+  | {
+      ok: true;
+      message?: string;
+      user: { email: string; name: string; accountNumber: string };
+    }
+  | { ok: false; error: string };
 
 export default function Register() {
   const nav = useNavigate();
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  const [password, setPassword] = useState('');
-  const [staySignedIn, setStaySignedIn] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [stay, setStay] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-  async function handleRegister(e: React.FormEvent) {
+  function validPin(p: string) {
+    return /^\d{4}$/.test(p);
+  }
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
+    setErr(null);
+    setInfo(null);
+
+    if (!validPin(pin)) {
+      setErr("PIN must be exactly 4 digits.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const r = await fetch(`${API}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, password, pin }),
+      const r = await fetch(`${API_BASE}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          name: name.trim(),
+          pin: pin.trim(),
+        }),
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'Register failed');
 
-      // Optionally log user in right after (depends on your flow)
-      const r2 = await fetch(`${API}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
-      const login = await r2.json();
-      if (!login.ok) throw new Error(login.error || 'Auto-login failed');
+      if (!r.ok) {
+        let msg = `HTTP ${r.status}`;
+        try {
+          const j = (await r.json()) as RegisterResponse;
+          if ("ok" in j && j.ok === false && j.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        setErr(`Registration failed: ${msg}`);
+        return;
+      }
 
-      localStorage.setItem('ceebank_email', login.user.email);
-      localStorage.setItem('access_token', login.accessToken);
-      nav('/dashboard');
+      const data = (await r.json()) as RegisterResponse;
+      if ("ok" in data && data.ok) {
+        setInfo(data.message || "Account created.");
+        // optional: auto-login flow in future; for now, forward to login
+        setTimeout(() => nav("/login"), 600);
+      } else {
+        setErr((data as any).error || "Registration failed");
+      }
     } catch (e: any) {
-      alert(e.message);
+      setErr(e?.message || "Network error");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Create your CeeBank account</h1>
-      <form className="space-y-4" onSubmit={handleRegister}>
-        <div className="space-y-2">
-          <label className="block text-sm">Full name</label>
+    <div className="max-w-md mx-auto p-4">
+      <h1 className="text-2xl font-semibold">Create your account</h1>
+      <p className="text-sm text-gray-600 mt-1">Banking that just works—fast, secure, modern.</p>
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <div>
+          <label className="block text-sm font-medium">Full name</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
+            className="mt-1 w-full border rounded-lg p-2"
+            placeholder="Jane Doe"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
         </div>
-        <div className="space-y-2">
-          <label className="block text-sm">Email</label>
+
+        <div>
+          <label className="block text-sm font-medium">Email</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
+            className="mt-1 w-full border rounded-lg p-2"
+            type="email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            type="email"
+            autoComplete="username"
             required
           />
         </div>
-        <div className="space-y-2">
-          <label className="block text-sm">Password</label>
+
+        <div>
+          <label className="block text-sm font-medium">Create password</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
+            className="mt-1 w-full border rounded-lg p-2"
+            type="password"
+            placeholder="At least 8 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            type="password"
+            autoComplete="new-password"
             required
+            minLength={8}
           />
         </div>
-        <div className="space-y-2">
-          <label className="block text-sm">4-digit Transaction PIN</label>
+
+        <div>
+          <label className="block text-sm font-medium">Transaction PIN (4 digits)</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            type="password"
+            className="mt-1 w-full border rounded-lg p-2"
             inputMode="numeric"
             pattern="\d{4}"
+            maxLength={4}
             placeholder="1234"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
             required
           />
+          <p className="text-xs text-gray-500 mt-1">
+            You’ll use this code to authorize transfers and payments.
+          </p>
         </div>
 
-        {/* Tight checkbox */}
-        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-black"
-            checked={staySignedIn}
-            onChange={(e) => setStaySignedIn(e.target.checked)}
-          />
-          <span>Stay signed in for 30 days</span>
-        </label>
+        {/* Tight checkbox + legal text */}
+        <div className="mt-1 space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-black align-middle"
+              checked={stay}
+              onChange={(e) => setStay(e.target.checked)}
+            />
+            <span className="leading-none">Stay signed in for 30 days</span>
+          </label>
+
+          <p className="text-xs text-gray-500 leading-snug">
+            By creating an account, you agree to our{" "}
+            <a href="/terms" className="text-blue-600 hover:underline">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="text-blue-600 hover:underline">
+              Privacy Policy
+            </a>.
+          </p>
+        </div>
+
+        {err && <div className="text-sm text-red-600">{err}</div>}
+        {info && <div className="text-sm text-green-600">{info}</div>}
 
         <button
+          className="w-full rounded-lg bg-black text-white p-2 font-medium disabled:opacity-60"
           type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
+          disabled={loading}
         >
-          {submitting ? 'Creating…' : 'Create account'}
+          {loading ? "Creating account..." : "Create account"}
         </button>
 
-        <p className="text-xs text-gray-600">
-          By creating an account, you agree to our{' '}
-          <Link to="/terms" className="underline">Terms of Service</Link> and{' '}
-          <Link to="/privacy" className="underline">Privacy Policy</Link>.
-        </p>
-
-        <p className="text-sm">
-          Already have an account? <Link to="/login" className="underline">Sign in</Link>
-        </p>
+        <div className="text-sm text-center">
+          Already have an account?{" "}
+          <Link to="/login" className="text-blue-600 hover:underline">
+            Sign in
+          </Link>
+        </div>
       </form>
     </div>
   );

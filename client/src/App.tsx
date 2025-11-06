@@ -4,6 +4,11 @@ import LoginPage from './components/LoginPage';
 import Register from './components/Register';
 import QuickActions from './components/QuickActions';
 import TransferPage from './components/TransferPage';
+import AirtimePage from "./components/AirtimePage";
+import BillsPage from "./components/BillsPage";
+import LoansPage from "./components/LoansPage";
+import CardsPage from "./components/CardsPage";
+import QRPage from "./components/QRPage";
 
 function Home() {
   return <Navigate to="/dashboard" replace />;
@@ -13,20 +18,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        {/* Quick actions pages */}
-        <Route path="/actions" element={<QuickActions />} />
-        <Route path="/airtime" element={<div className="p-6">Airtime – coming soon</div>} />
-        <Route path="/bills" element={<div className="p-6">Bills – coming soon</div>} />
-        <Route path="/loans" element={<div className="p-6">Loans – coming soon</div>} />
-        <Route path="/cards" element={<div className="p-6">Virtual Cards – coming soon</div>} />
-        <Route path="/qr" element={<div className="p-6">QR Payments – coming soon</div>} />
-        <Route path="/transfer" element={<TransferPage />} />
-        {/* Fallback */}
-        <Route path="*" element={<div className="p-6">Not found</div>} />
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/transfer" element={<TransferPage />} />
+      <Route path="/airtime" element={<AirtimePage />} />
+      <Route path="/bills" element={<BillsPage />} />
+      <Route path="/loans" element={<LoansPage />} />
+      <Route path="/cards" element={<CardsPage />} />
+      <Route path="/qr" element={<QRPage />} />
       </Routes>
     </BrowserRouter>
   );

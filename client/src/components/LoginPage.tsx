@@ -1,94 +1,132 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
-const API = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE: string = (import.meta as any).env?.VITE_API_BASE || "";
+
+type LoginResponse =
+  | {
+      ok: true;
+      user: { email: string; name: string; accountNumber: string };
+      accessToken: string;
+      refreshToken: string;
+    }
+  | { ok: false; error: string };
 
 export default function LoginPage() {
   const nav = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [staySignedIn, setStaySignedIn] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [stay, setStay] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
+    setErr(null);
+    setLoading(true);
     try {
-      const r = await fetch(`${API}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const r = await fetch(`${API_BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'Login failed');
-      localStorage.setItem('ceebank_email', data.user.email);
-      localStorage.setItem('access_token', data.accessToken);
-      if (!staySignedIn) {
-        // if you want session-only behavior, you could mirror to sessionStorage, etc.
+
+      if (!r.ok) {
+        // Typical backend sends 401 with a JSON { ok:false, error:"..." }
+        let msg = `HTTP ${r.status}`;
+        try {
+          const j = (await r.json()) as LoginResponse;
+          if ("ok" in j && j.ok === false && j.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        setErr(`Login failed: ${msg}`);
+        return;
       }
-      nav('/dashboard');
+
+      const data = (await r.json()) as LoginResponse;
+      if ("ok" in data && data.ok) {
+        // if you later wire real tokens, store them when stay==true
+        if (stay) {
+          localStorage.setItem("ceebank_user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("ceebank_user", JSON.stringify(data.user));
+        }
+        nav("/");
+      } else {
+        setErr((data as any).error || "Login failed");
+      }
     } catch (e: any) {
-      alert(`Login failed: ${e.message}`);
+      setErr(e?.message || "Network error");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <form className="space-y-4" onSubmit={handleLogin}>
-        <div className="space-y-2">
-          <label className="block text-sm">Email</label>
+    <div className="max-w-md mx-auto p-4">
+      <h1 className="text-2xl font-semibold">Welcome back</h1>
+      <p className="text-sm text-gray-600 mt-1">Sign in to your CeeBank account.</p>
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <div>
+          <label className="block text-sm font-medium">Email</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
+            className="mt-1 w-full border rounded-lg p-2"
+            type="email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            type="email"
+            autoComplete="username"
             required
           />
         </div>
-        <div className="space-y-2">
-          <label className="block text-sm">Password</label>
+
+        <div>
+          <label className="block text-sm font-medium">Password</label>
           <input
-            className="w-full border rounded-lg px-3 py-2"
+            className="mt-1 w-full border rounded-lg p-2"
+            type="password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            type="password"
+            autoComplete="current-password"
             required
           />
         </div>
 
-        {/* Tight checkbox */}
-        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-black"
-            checked={staySignedIn}
-            onChange={(e) => setStaySignedIn(e.target.checked)}
-          />
-          <span>Stay signed in for 30 days</span>
-        </label>
+        {/* Tighter checkbox row */}
+        <div className="mt-1 flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-black align-middle"
+              checked={stay}
+              onChange={(e) => setStay(e.target.checked)}
+            />
+            <span className="leading-none">Stay signed in for 30 days</span>
+          </label>
+          <a href="#" className="text-sm text-blue-600 hover:underline">
+            Forgot password?
+          </a>
+        </div>
+
+        {err && <div className="text-sm text-red-600">{err}</div>}
 
         <button
+          className="w-full rounded-lg bg-black text-white p-2 font-medium disabled:opacity-60"
           type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
+          disabled={loading}
         >
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {loading ? "Signing in..." : "Sign in"}
         </button>
 
-        {/* Tight Terms line under form */}
-        <p className="text-xs text-gray-600">
-          By creating an account, you agree to our{' '}
-          <Link to="/terms" className="underline">Terms of Service</Link> and{' '}
-          <Link to="/privacy" className="underline">Privacy Policy</Link>.
-        </p>
-
-        <p className="text-sm">
-          No account? <Link to="/register" className="underline">Create one</Link>
-        </p>
+        <div className="text-sm text-center">
+          New here?{" "}
+          <Link to="/register" className="text-blue-600 hover:underline">
+            Create an account
+          </Link>
+        </div>
       </form>
     </div>
   );
