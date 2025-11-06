@@ -1,103 +1,71 @@
-import React, { useState } from 'react';
-import { apiPost, saveUser } from '../lib/api';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-type RegisterResp =
-  | { ok: true; message: string; user: { email: string; name: string; accountNumber?: string } }
-  | { ok: false; error: string };
-
-export default function Register() {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [pin, setPin] = useState('');
+export default function Register(){
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
   const [agree, setAgree] = useState(true);
-  const [stay, setStay] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const nav = useNavigate();
 
-  async function onSubmit(e: React.FormEvent) {
+  const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
-    setErr(null); setOkMsg(null);
-
-    if (!/^\d{4}$/.test(pin)) {
-      setErr('PIN must be exactly 4 digits.');
-      return;
+    setErr(null);
+    if(!agree){ setErr("You must accept the Terms and Privacy Policy."); return; }
+    try{
+      const base = (import.meta as any).env?.VITE_API_BASE || "/api";
+      const res = await fetch(`${base}/auth/register`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email, password, name, pin })
+      });
+      if(!res.ok){ setErr(`Registration failed: HTTP ${res.status}`); return; }
+      const data = await res.json();
+      if(!data?.ok){ setErr(data?.error || "Registration failed"); return; }
+      nav("/login");
+    }catch(ex:any){
+      setErr(ex?.message || "Network error");
     }
-    if (!agree) {
-      setErr('You must agree to Terms and Privacy.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const j = await apiPost<RegisterResp>('/auth/register', { email, password, name, pin });
-      if ('ok' in j && j.ok) {
-        setOkMsg('Registered. You can now sign in.');
-        // Save minimal identity so Dashboard can pull full profile
-        saveUser({ email, name });
-        window.location.href = '/';
-      } else {
-        throw new Error(j?.error || 'Registration failed');
-      }
-    } catch (e: any) {
-      setErr(e.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  }
+  };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Create account</h1>
-      <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border p-5 bg-white">
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Full name</label>
-          <input className="w-full rounded-xl border px-3 py-2"
-                 value={name} onChange={e=>setName(e.target.value)} required />
+    <div className="container" style={{padding:'32px 16px'}}>
+      <form className="card" onSubmit={onSubmit} style={{maxWidth:560, margin:'20px auto'}}>
+        <h2 style={{marginTop:0}}>Create your account</h2>
+        <div className="grid" style={{gap:12}}>
+          <label>Full name
+            <input value={name} onChange={e=>setName(e.target.value)} required
+              style={{width:'100%',marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--panel)',color:'var(--text)'}}/>
+          </label>
+          <label>Email
+            <input value={email} onChange={e=>setEmail(e.target.value)} required
+              style={{width:'100%',marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--panel)',color:'var(--text)'}}/>
+          </label>
+          <label>Password
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
+              style={{width:'100%',marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--panel)',color:'var(--text)'}}/>
+          </label>
+          <label>4-digit transaction PIN
+            <input value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} maxLength={4} required
+              style={{width:'100%',marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--panel)',color:'var(--text)'}}/>
+          </label>
+
+          <div className="checkline" style={{marginTop:6}}>
+            <input id="agree" type="checkbox" checked={agree} onChange={()=>setAgree(a=>!a)} />
+            <label htmlFor="agree">
+              By creating an account, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+            </label>
+          </div>
+
+          {err && <div style={{color:'#fca5a5', fontWeight:600}}>{err}</div>}
+
+          <div style={{display:'flex', gap:12, marginTop:6}}>
+            <button className="btn brand" type="submit">Create account</button>
+            <button className="btn" type="button" onClick={()=>history.back()}>Cancel</button>
+          </div>
         </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Email</label>
-          <input className="w-full rounded-xl border px-3 py-2"
-                 type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Password</label>
-          <input className="w-full rounded-xl border px-3 py-2"
-                 type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Transaction PIN (4 digits)</label>
-          <input inputMode="numeric" pattern="\d{4}" maxLength={4}
-                 className="w-full rounded-xl border px-3 py-2"
-                 value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g, '').slice(0,4))}
-                 placeholder="1234" required />
-        </div>
-
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={stay} onChange={e=>setStay(e.target.checked)} />
-          <span className="text-sm">Stay signed in for 30 days</span>
-        </label>
-
-        <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
-        <input type="checkbox" className="mt-1 h-4 w-4" />
-        <span>
-         By creating an account, you agree to our{" "}
-        <a href="#" className="underline">Terms of Service</a> and{" "}
-        <a href="#" className="underline">Privacy Policy</a>.
-        </span>
-        </label>
-
-
-        {err && <div className="rounded-lg bg-red-50 text-red-700 text-sm p-3">{err}</div>}
-        {okMsg && <div className="rounded-lg bg-green-50 text-green-700 text-sm p-3">{okMsg}</div>}
-
-        <button type="submit" disabled={loading}
-                className="w-full rounded-xl bg-black text-white py-2.5 font-medium hover:opacity-90 disabled:opacity-60">
-          {loading ? 'Creating…' : 'Create account'}
-        </button>
       </form>
     </div>
   );

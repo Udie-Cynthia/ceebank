@@ -1,32 +1,29 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-type Props = { compact?: boolean };
+export default function QuickActions(){
+  const nav = useNavigate();
 
-const actions = [
-  { to: "/airtime", title: "Buy Airtime", desc: "Top up any network instantly." },
-  { to: "/transfer", title: "Transfer", desc: "Send money to banks & wallets." },
-  { to: "/pay-bills", title: "Pay Bills", desc: "Utility, TV, internet, more." },
-  { to: "/loans", title: "Loans", desc: "Quick demo loans & offers." },
-  { to: "/cards", title: "Virtual Cards", desc: "Create and manage virtual cards." },
-  { to: "/qr", title: "QR Payments", desc: "Scan & pay at merchants." },
-];
+  const go = (path:string) => () => nav(path);
 
-export default function QuickActions({ compact }: Props) {
-  return (
-    <div className={compact ? "" : "mt-6"}>
-      {!compact && <h2 className="text-xl font-semibold mb-3">Quick Actions</h2>}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {actions.map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="block rounded-lg border p-4 hover:shadow-sm transition-shadow"
-          >
-            <div className="font-medium">{a.title}</div>
-            <div className="text-sm text-gray-600 mt-1">{a.desc}</div>
-          </Link>
-        ))}
+  const Item = ({icon, title, desc, to}:{icon:string; title:string; desc:string; to:string}) => (
+    <div className="qaction card" onClick={go(to)} role="button" tabIndex={0}
+         onKeyDown={(e)=> (e.key==='Enter' || e.key===' ') && go(to)()}>
+      <div className="qicon">{icon}</div>
+      <div>
+        <div className="qtitle">{title}</div>
+        <div className="qdesc">{desc}</div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="grid grid-3">
+      <Item icon="📶" title="Buy Airtime" desc="Top up any network instantly."        to="/airtime" />
+      <Item icon="💸" title="Transfer"    desc="Send money to banks & wallets."       to="/transfer" />
+      <Item icon="📺" title="Pay Bills"   desc="Utility, TV, internet, more."         to="/bills" />
+      <Item icon="💳" title="Virtual Cards" desc="Create and manage virtual cards."   to="/cards" />
+      <Item icon="🔳" title="QR Payments" desc="Scan & pay at merchants."             to="/qr" />
+      <Item icon="🪙" title="Loans"       desc="Quick loans & offers."                to="/loans" />
     </div>
   );
 }
