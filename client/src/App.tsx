@@ -20,7 +20,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Other pages can later be implemented; for now they can be placeholders */}
-          <Route path="/transfer" element={<TransferPage />}
+          <Route path="/transfer" element={<TransferPage />} />
           <Route path="/airtime" element={<div className="max-w-6xl mx-auto px-4 py-6">Airtime</div>} />
           <Route path="/bills" element={<div className="max-w-6xl mx-auto px-4 py-6">Bills</div>} />
           <Route path="/loans" element={<div className="max-w-6xl mx-auto px-4 py-6">Loans</div>} />
