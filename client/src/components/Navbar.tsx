@@ -6,7 +6,6 @@ export default function Navbar() {
       <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link to="/" className="inline-flex items-center gap-2">
           <img src="/ceebank-logo.svg" alt="CeeBank" className="h-6 w-6" />
-          <span className="text-lg font-semibold">CeeBank</span>
         </Link>
 
         <div className="flex items-center gap-6 text-sm">
