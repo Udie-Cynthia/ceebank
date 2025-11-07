@@ -5,6 +5,7 @@ import LoginPage from "./components/LoginPage";
 import QuickActions from "./components/QuickActions"; // only used inside Dashboard, but safe to keep
 import Home from "./pages/Home";
 import About from "./pages/About";
+import TransferPage from "./components/TransferPage";
 
 export default function App() {
   return (
@@ -19,7 +20,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Other pages can later be implemented; for now they can be placeholders */}
-          <Route path="/transfer" element={<div className="max-w-6xl mx-auto px-4 py-6">Transfer</div>} />
+          <Route path="/transfer" element={<TransferPage />}
           <Route path="/airtime" element={<div className="max-w-6xl mx-auto px-4 py-6">Airtime</div>} />
           <Route path="/bills" element={<div className="max-w-6xl mx-auto px-4 py-6">Bills</div>} />
           <Route path="/loans" element={<div className="max-w-6xl mx-auto px-4 py-6">Loans</div>} />
