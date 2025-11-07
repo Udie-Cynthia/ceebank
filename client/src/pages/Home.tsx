@@ -38,6 +38,21 @@ export default function Home() {
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [balance, setBalance] = useState<number | null>(4000000);
   const displayName = storedName || (storedEmail ? storedEmail.split('@')[0] : '');
+  // ADDED: seed the JSON key Dashboard expects (name/email) so it can greet immediately
+useEffect(() => {
+  if (storedEmail || storedName) {
+    try {
+      localStorage.setItem(
+        'ceebankUser',
+        JSON.stringify({
+          name: storedName || (storedEmail ? storedEmail.split('@')[0] : ''),
+          email: storedEmail || ''
+        })
+      );
+    } catch {}
+  }
+}, [storedEmail, storedName]);
+
 
   useEffect(() => {
     let abort = false;
@@ -64,6 +79,24 @@ export default function Home() {
           // Keep local cache in case we want to show immediately next time
           localStorage.setItem('ceebank.accountNumber', data.accountNumber);
           localStorage.setItem('ceebank.balance', String(data.balance));
+            // ADDED: also write the JSON blobs that Dashboard is already reading
+  try {
+    localStorage.setItem(
+      'ceebankUser',
+      JSON.stringify({
+        name: data.name,
+        email: storedEmail
+      })
+    );
+    localStorage.setItem(
+      'ceebankAccount',
+      JSON.stringify({
+        accountNumber: data.accountNumber,
+        balance: data.balance
+      })
+    );
+  } catch {}
+
         } else {
           setError(data.error || 'Unable to load account.');
         }
