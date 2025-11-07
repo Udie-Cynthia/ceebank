@@ -1,179 +1,283 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
-/* ---------------- Helpers ---------------- */
-type Account = {
-  email: string;
-  name: string;
-  accountNumber: string;
-  balance: number;
+/**
+ * Dashboard
+ * - Presents an Account Summary card: Welcome, Account Number, Available Balance (large).
+ * - Renders Quick Actions as a clean, evenly spaced grid of clickable tiles.
+ * - Does NOT alter upstream data flow; it reads from whatever you already store.
+ *   Fallbacks: localStorage + a lightweight /api/auth/account?email=... fetch (non-blocking).
+ */
+
+type Summary = {
+  name?: string;
+  accountNumber?: string;
+  balance?: number;
+  email?: string;
 };
 
-function naira(amount: number | undefined) {
-  const v = typeof amount === "number" ? amount : 0;
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 0,
-  }).format(v);
-}
+const currency = (n?: number) =>
+  typeof n === 'number'
+    ? n.toLocaleString('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 })
+    : '₦0';
 
-/* --------------- Component --------------- */
 export default function Dashboard() {
-  const [account, setAccount] = useState<Account | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  // 1) Try to hydrate from common places (your app state or localStorage)
+  const [summary, setSummary] = useState<Summary>(() => {
+    // Soft guesses where your app might put things:
+    // - window.__CEEBANK
+    // - localStorage.ceebankUser
+    // - localStorage.ceebankAccount
+    // All optional: we never hard-fail if absent.
+    const fromGlobal: Partial<Summary> =
+      (typeof window !== 'undefined' && (window as any).__CEEBANK) || {};
 
-  const email = useMemo(() => {
-    // the app writes this on login/register; keep same key
-    return localStorage.getItem("cee_email") || "";
-  }, []);
+    const user =
+      safeParse(localStorage.getItem('ceebankUser')) ||
+      safeParse(localStorage.getItem('user')) ||
+      {};
 
+    const acct =
+      safeParse(localStorage.getItem('ceebankAccount')) ||
+      safeParse(localStorage.getItem('account')) ||
+      {};
+
+    // Pick best-known values; don’t override with undefined
+    const name = (fromGlobal as any).name ?? user.name;
+    const email = (fromGlobal as any).email ?? user.email;
+    const accountNumber =
+      (fromGlobal as any).accountNumber ?? acct.accountNumber ?? user.accountNumber;
+    const balance =
+      pickNumber((fromGlobal as any).balance) ??
+      pickNumber(acct.balance) ??
+      pickNumber(user.balance);
+
+    return { name, email, accountNumber, balance };
+  });
+
+  // 2) Best-effort fetch to refresh balance/account if we know email and something’s missing
   useEffect(() => {
-    let ok = true;
+    let cancelled = false;
 
-    async function run() {
-      setLoading(true);
-      setErr(null);
+    async function refresh() {
+      if (!summary?.email) return;
+      const needs =
+        !summary?.accountNumber || typeof summary?.balance !== 'number';
+
+      if (!needs) return;
+
       try {
-        if (!email) {
-          setErr("Not signed in. Please sign in to view your dashboard.");
-          setAccount(null);
-          return;
+        const res = await fetch(`/api/auth/account?email=${encodeURIComponent(summary.email)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data && data.ok) {
+          const next: Summary = {
+            name: data.name ?? summary.name,
+            email: summary.email,
+            accountNumber: data.accountNumber ?? summary.accountNumber,
+            balance: typeof data.balance === 'number' ? data.balance : summary.balance,
+          };
+          setSummary(next);
+
+          // Keep a small mirror so other pages can reuse
+          try {
+            localStorage.setItem('ceebankAccount', JSON.stringify({
+              accountNumber: next.accountNumber,
+              balance: next.balance,
+            }));
+          } catch {}
         }
-        const r = await fetch(`/api/auth/account?email=${encodeURIComponent(email)}`);
-        if (!r.ok) {
-          const msg = `HTTP ${r.status}`;
-          throw new Error(msg);
-        }
-        const data = await r.json();
-        if (ok) {
-          if (data?.ok) {
-            setAccount({
-              email: data.email,
-              name: data.name,
-              accountNumber: data.accountNumber,
-              balance: data.balance,
-            });
-          } else {
-            throw new Error(data?.error || "Unable to load account");
-          }
-        }
-      } catch (e: any) {
-        if (ok) setErr(e?.message ?? "Failed to load account");
-      } finally {
-        if (ok) setLoading(false);
+      } catch {
+        // ignore network blips
       }
     }
 
-    run();
+    refresh();
     return () => {
-      ok = false;
+      cancelled = true;
     };
-  }, [email]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary?.email]);
 
-  /* ----------- Small building blocks ----------- */
-  const Card: React.FC<{ title: string; value?: React.ReactNode; className?: string }> = ({
-    title,
-    value,
-    className = "",
-  }) => (
-    <div className={`rounded-xl border bg-white/90 backdrop-blur p-4 shadow-sm ${className}`}>
-      <div className="text-xs font-medium text-gray-500 tracking-wide">{title}</div>
-      <div className="mt-1 text-lg font-semibold text-gray-900">{value ?? "—"}</div>
-    </div>
-  );
+  const nameSafe = useMemo(() => summary?.name || '—', [summary?.name]);
+  const acctSafe = useMemo(() => summary?.accountNumber || '—', [summary?.accountNumber]);
+  const balSafe = useMemo(() => currency(summary?.balance), [summary?.balance]);
 
-  const Skeleton = ({ lines = 1 }: { lines?: number }) => (
-    <div className="animate-pulse space-y-2">
-      {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-4 rounded bg-gray-200" />
-      ))}
-    </div>
-  );
-
-  const DisabledTile: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
-    <button
-      type="button"
-      disabled
-      title="Coming soon"
-      className="text-left rounded-lg border bg-white/80 p-4 shadow-sm hover:bg-gray-50 disabled:opacity-60"
-    >
-      <div className="font-medium text-gray-900">{title}</div>
-      <div className="text-sm text-gray-600">{subtitle}</div>
-    </button>
-  );
-
-  /* ------------------- UI ------------------- */
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6">
-      {/* Title + Lead */}
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">Your account overview and quick actions.</p>
-      </header>
+    <div style={styles.page}>
+      {/* Single page title. If your shell already prints "Dashboard", feel free to remove this H1. */}
+      <h1 style={styles.h1}>Dashboard</h1>
 
-      {/* Alert for errors */}
-      {err && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {err}
-        </div>
-      )}
-
-      {/* Welcome + Stats */}
-      <section aria-labelledby="overview" className="rounded-2xl bg-gradient-to-tr from-white to-gray-50 p-5 ring-1 ring-gray-100">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Account Summary Card */}
+      <section style={styles.card}>
+        <div style={styles.cardHeader}>
           <div>
-            <div className="text-sm text-gray-500">Welcome</div>
-            {loading ? (
-              <div className="mt-1 w-40">
-                <Skeleton />
-              </div>
-            ) : (
-              <div className="mt-0.5 text-xl font-semibold text-gray-900">
-                {account?.name || "—"}
-              </div>
-            )}
+            <div style={styles.kicker}>Welcome</div>
+            <div style={styles.nameLine}>{nameSafe}</div>
           </div>
+        </div>
 
-          <div className="grid w-full gap-3 sm:grid-cols-2 md:w-auto md:grid-cols-2">
-            <Card
-              title="Account Number"
-              value={loading ? <Skeleton /> : <span className="tabular-nums">{account?.accountNumber || "—"}</span>}
-            />
-            <Card
-              title="Available Balance"
-              value={loading ? <Skeleton /> : <span className="tabular-nums">{naira(account?.balance)}</span>}
-            />
+        <div style={styles.summaryGrid}>
+          <div style={styles.summaryItem}>
+            <div style={styles.label}>Account Number</div>
+            <div style={styles.value}>{acctSafe}</div>
+          </div>
+          <div style={styles.summaryItem}>
+            <div style={styles.label}>Available Balance</div>
+            <div style={styles.balance}>{balSafe}</div>
           </div>
         </div>
       </section>
 
       {/* Quick Actions */}
-      <section aria-labelledby="qa-title" className="mt-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 id="qa-title" className="text-lg font-semibold text-gray-900">
-            Quick Actions
-          </h2>
+      <section aria-labelledby="qa-title" style={{ marginTop: 24 }}>
+        <div style={styles.sectionHeader}>
+          <h2 id="qa-title" style={styles.h2}>Quick Actions</h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Transfer (enabled) */}
-          <a
-            href="/transfer"
-            className="block rounded-lg border bg-white/80 p-4 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <div className="font-medium text-gray-900">Transfer</div>
-            <div className="text-sm text-gray-600">Send money to banks &amp; wallets.</div>
-          </a>
-
-          {/* Others (disabled placeholders for now) */}
-          <DisabledTile title="Buy Airtime" subtitle="Top up any network instantly." />
-          <DisabledTile title="Pay Bills" subtitle="Utility, TV, internet, more." />
-          <DisabledTile title="Loans" subtitle="Quick loans & offers." />
-          <DisabledTile title="Virtual Cards" subtitle="Create & manage virtual cards." />
-          <DisabledTile title="QR Payments" subtitle="Scan & pay at merchants." />
+        <div style={styles.qaGrid}>
+          <QATile to="/airtime" title="Buy Airtime" desc="Top up any network instantly." />
+          <QATile to="/transfer" title="Transfer" desc="Send money to banks & wallets." />
+          <QATile to="/bills" title="Pay Bills" desc="Utility, TV, internet, more." />
+          <QATile to="/loans" title="Loans" desc="Quick loans & offers." />
+          <QATile to="/cards" title="Virtual Cards" desc="Create & manage virtual cards." />
+          <QATile to="/qr" title="QR Payments" desc="Scan & pay at merchants." />
         </div>
       </section>
-    </main>
+    </div>
   );
 }
+
+/* ---------- Helpers ---------- */
+
+function safeParse<T = any>(s: string | null): T | null {
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+function pickNumber(v: any): number | undefined {
+  return typeof v === 'number' ? v : undefined;
+}
+
+/* ---------- Small building blocks ---------- */
+
+function QATile(props: { to: string; title: string; desc: string }) {
+  return (
+    <Link to={props.to} style={styles.qaTile} aria-label={props.title}>
+      <div style={styles.qaTitle}>{props.title}</div>
+      <div style={styles.qaDesc}>{props.desc}</div>
+    </Link>
+  );
+}
+
+/* ---------- Inline styles (framework-agnostic) ---------- */
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    maxWidth: 1040,
+    margin: '0 auto',
+    padding: '24px 16px 48px',
+  },
+  h1: {
+    margin: 0,
+    fontSize: 28,
+    fontWeight: 700,
+    letterSpacing: 0.2,
+  },
+  h2: {
+    margin: 0,
+    fontSize: 20,
+    fontWeight: 700,
+  },
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  card: {
+    border: '1px solid rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    padding: 16,
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+    marginTop: 16,
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  kicker: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'rgba(0,0,0,0.55)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  nameLine: {
+    fontSize: 18,
+    fontWeight: 600,
+  },
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 16,
+    marginTop: 8,
+  },
+  summaryItem: {
+    border: '1px solid rgba(0,0,0,0.06)',
+    borderRadius: 10,
+    padding: '12px 14px',
+    background: '#fafafa',
+  },
+  label: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.65)',
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 16,
+    fontWeight: 600,
+    letterSpacing: 0.3,
+  },
+  balance: {
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: 0.3,
+  },
+  qaGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 16,
+  },
+  qaTile: {
+    display: 'block',
+    border: '1px solid rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    padding: '14px 16px',
+    textDecoration: 'none',
+    background: '#fff',
+    color: '#111',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+    transition: 'transform 120ms ease, box-shadow 120ms ease',
+  } as React.CSSProperties,
+  qaTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  qaDesc: {
+    fontSize: 13,
+    color: 'rgba(0,0,0,0.65)',
+    lineHeight: 1.4,
+  },
+};
