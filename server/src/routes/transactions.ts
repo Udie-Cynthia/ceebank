@@ -56,4 +56,40 @@ router.post('/transfer', (req: Request, res: Response) => {
 
 export default router;
 
+// --- Recent transactions (read-only) ---
+// GET /api/transactions/recent?email=<email>&limit=20
+router.get('/transactions/recent', (req, res) => {
+  const emailRaw = (req.query.email ?? '').toString().trim().toLowerCase();
+  if (!emailRaw) {
+    return res.status(400).json({ ok: false, error: 'email is required' });
+  }
+
+  // Use your existing store accessor
+  try {
+    // If your store exposes a different function, adjust this next line only.
+    const user = getUser(emailRaw);
+    if (!user) {
+      return res.status(404).json({ ok: false, error: 'User not found' });
+    }
+
+    // Safely read the list; default to [] if missing
+    const list: any[] = Array.isArray((user as any).transactions)
+      ? (user as any).transactions
+      : [];
+
+    // limit=20 by default, clamp 1..100
+    const limitParam = parseInt((req.query.limit ?? '20').toString(), 10);
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(100, Math.max(1, limitParam))
+      : 20;
+
+    // Return newest first; assuming your store keeps them in chronological order
+    const recent = list.slice(-limit).reverse();
+
+    return res.json({ ok: true, transactions: recent });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'Unexpected server error' });
+  }
+});
+
     
