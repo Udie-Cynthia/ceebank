@@ -1,38 +1,41 @@
-import { Link, NavLink } from "react-router-dom";
-
-const linkBase = "px-3 py-2 rounded-md text-sm font-medium transition";
-const linkInactive = "text-gray-600 hover:text-gray-900 hover:bg-gray-100";
-const linkActive = "text-blue-700 bg-blue-50";
+import { Link, NavLink, useLocation } from "react-router-dom";
 
 export default function Navbar() {
+  const { pathname } = useLocation();
+
+  const linkBase =
+    "px-3 py-2 rounded-md text-sm font-medium transition";
+  const linkInactive =
+    "text-gray-600 hover:text-gray-900 hover:bg-gray-100";
+  const linkActive =
+    "text-blue-700 bg-blue-50";
+
+  const isActive = (to: string) => (pathname === to ? linkActive : linkInactive);
+
   return (
-    <header className="border-b border-gray-200 bg-white/80 backdrop-blur">
+    <header className="border-b bg-white">
       <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Brand */}
-        <Link to="/" className="inline-flex items-center gap-2">
-          <img src="/ceebank-logo.svg" alt="CeeBank" className="h-7 w-auto" />
+        <Link to="/" className="flex items-center gap-2">
+          <img
+            src="/ceebank-logo.svg"
+            alt="CeeBank"
+            className="h-7 w-auto"
+          />
           <span className="sr-only">CeeBank</span>
         </Link>
 
         {/* Primary nav */}
         <ul className="flex items-center gap-1">
           <li>
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkInactive}`
-              }
-            >
+            <NavLink to="/" className={`${linkBase} ${isActive("/")}`}>
               Home
             </NavLink>
           </li>
           <li>
             <NavLink
               to="/about"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkInactive}`
-              }
+              className={`${linkBase} ${isActive("/about")}`}
             >
               About
             </NavLink>
@@ -40,9 +43,7 @@ export default function Navbar() {
           <li>
             <NavLink
               to="/dashboard"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkInactive}`
-              }
+              className={`${linkBase} ${isActive("/dashboard")}`}
             >
               Dashboard
             </NavLink>
@@ -50,9 +51,7 @@ export default function Navbar() {
           <li>
             <NavLink
               to="/transfer"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkInactive}`
-              }
+              className={`${linkBase} ${isActive("/transfer")}`}
             >
               Transfer
             </NavLink>
@@ -78,4 +77,3 @@ export default function Navbar() {
     </header>
   );
 }
-
