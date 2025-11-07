@@ -54,6 +54,37 @@ router.post('/transfer', (req: Request, res: Response) => {
   return res.json({ ok: true, reference: txnRef, balance: newBal, message: 'Transfer successful' });
 });
 
+// --- Recent transactions (read-only) ---
+router.get('/transactions/recent', (req, res) => {
+  try {
+    const rawEmail = String(req.query.email ?? '').trim();
+    const email = rawEmail.toLowerCase();
+    const limitParam = String(req.query.limit ?? '10');
+    const limit = Math.max(1, Math.min(50, parseInt(limitParam, 10) || 10));
+
+    if (!email) {
+      return res.status(400).json({ ok: false, error: 'Missing email' });
+    }
+
+    const user = getUser(email);
+    if (!user) {
+      return res.status(404).json({ ok: false, error: 'User not found' });
+    }
+
+    // Many of our routes push transactions onto user.transactions.
+    // If it doesn’t exist yet, return an empty list gracefully.
+    const txns = Array.isArray((user as any).transactions)
+      ? (user as any).transactions
+      : [];
+
+    const recent = txns.slice(-limit).reverse(); // newest first
+    return res.json({ ok: true, transactions: recent });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'Failed to fetch transactions' });
+  }
+});
+
+
 export default router;
 
 // --- Recent transactions (read-only) ---
