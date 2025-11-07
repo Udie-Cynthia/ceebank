@@ -1,79 +1,23 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar() {
-  const { pathname } = useLocation();
-
-  const linkBase =
-    "px-3 py-2 rounded-md text-sm font-medium transition";
-  const linkInactive =
-    "text-gray-600 hover:text-gray-900 hover:bg-gray-100";
-  const linkActive =
-    "text-blue-700 bg-blue-50";
-
-  const isActive = (to: string) => (pathname === to ? linkActive : linkInactive);
-
   return (
-    <header className="border-b bg-white">
+    <header className="border-b border-gray-200 bg-white/80 backdrop-blur">
       <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        {/* Brand */}
-        <Link to="/" className="flex items-center gap-2">
-          <img
-            src="/ceebank-logo.svg"
-            alt="CeeBank"
-            className="h-7 w-auto"
-          />
-          <span className="sr-only">CeeBank</span>
+        <Link to="/" className="inline-flex items-center gap-2">
+          <img src="/ceebank-logo.svg" alt="CeeBank" className="h-6 w-6" />
         </Link>
 
-        {/* Primary nav */}
-        <ul className="flex items-center gap-1">
-          <li>
-            <NavLink to="/" className={`${linkBase} ${isActive("/")}`}>
-              Home
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/about"
-              className={`${linkBase} ${isActive("/about")}`}
-            >
-              About
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/dashboard"
-              className={`${linkBase} ${isActive("/dashboard")}`}
-            >
-              Dashboard
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/transfer"
-              className={`${linkBase} ${isActive("/transfer")}`}
-            >
-              Transfer
-            </NavLink>
-          </li>
-        </ul>
-
-        {/* Auth actions */}
-        <div className="flex items-center gap-2">
-          <Link
-            to="/login"
-            className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/register"
-            className="px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition"
-          >
-            Create Account
-          </Link>
+        <div className="flex items-center gap-6 text-sm">
+          <NavLink to="/" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Home</NavLink>
+          <NavLink to="/about" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>About</NavLink>
+          <NavLink to="/dashboard" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Dashboard</NavLink>
+          <NavLink to="/transfer" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Transfer</NavLink>
+          <NavLink to="/login" className={({isActive}) => isActive ? "font-medium" : "text-gray-600 hover:text-gray-900"}>Sign in</NavLink>
         </div>
       </nav>
     </header>
   );
 }
+
+
