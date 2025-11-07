@@ -1,126 +1,264 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+/**
+ * Create Account (Signup)
+ * - Fields: name, email, password, 4-digit pin
+ * - Tight checkbox for "Stay signed in for 30 days" and ToS/Privacy text
+ * - Calls POST /api/auth/register, then POST /api/auth/login
+ * - Stores profile + tokens, then redirects to /dashboard
+ * - Clean, professional UI (no fancy colors/animations)
+ */
+
+type ApiUser = {
+  email: string;
+  name: string;
+  accountNumber?: string;
+  balance?: number;
+};
+
+type RegisterResp =
+  | { ok: true; message?: string; user: ApiUser }
+  | { ok: false; error: string };
+
+type LoginResp =
+  | {
+      ok: true;
+      user: ApiUser;
+      accessToken?: string;
+      refreshToken?: string;
+    }
+  | { ok: false; error: string };
 
 export default function Register() {
-  const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
-  const [agree, setAgree] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
-  async function submit(e: React.FormEvent) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [staySignedIn, setStaySignedIn] = useState(true);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const apiBase = ""; // same-origin; Nginx proxies /api/* to the server
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!agree) { setError("Please agree to the Terms and Privacy Policy."); return; }
-    setBusy(true);
+    setSuccessMsg(null);
+
+    // Basic client validation
+    if (!name.trim() || !email.trim() || !password.trim() || !/^\d{4}$/.test(pin)) {
+      setError("Please fill all fields. PIN must be 4 digits.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const r = await fetch(`${API_BASE}/auth/register`, {
+      // 1) Register
+      const r1 = await fetch(`${apiBase}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, pin }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password, pin }),
       });
-      const data = await r.json();
-      if (r.ok && data?.ok) {
-        localStorage.setItem("ceebank_email", email);
-        nav("/dashboard");
-      } else {
-        setError(data?.error || "Registration failed");
+      const data1 = (await r1.json()) as RegisterResp;
+
+      if (!r1.ok || !("ok" in data1) || !data1.ok) {
+        const msg = (data1 as any)?.error || `Registration failed (HTTP ${r1.status})`;
+        setError(msg);
+        setSubmitting(false);
+        return;
       }
-    } catch {
-      setError("Network error");
+
+      // Store profile (use server balance if present, otherwise default 4,000,000)
+      const profile: ApiUser = {
+        email: data1.user.email,
+        name: data1.user.name,
+        accountNumber: data1.user.accountNumber,
+        balance:
+          typeof data1.user.balance === "number" ? data1.user.balance : 4_000_000,
+      };
+
+      // Persist user profile immediately so Dashboard/Home can render without delay
+      localStorage.setItem("ceebank:user", JSON.stringify(profile));
+
+      setSuccessMsg("Account created successfully.");
+
+      // 2) Auto-login (optional but improves UX)
+      try {
+        const r2 = await fetch(`${apiBase}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: profile.email, password }),
+        });
+        const data2 = (await r2.json()) as LoginResp;
+
+        if (r2.ok && data2.ok) {
+          // Prefer server values if returned
+          const merged: ApiUser = {
+            email: data2.user.email,
+            name: data2.user.name,
+            accountNumber: data2.user.accountNumber || profile.accountNumber,
+            balance:
+              typeof data2.user.balance === "number"
+                ? data2.user.balance
+                : profile.balance,
+          };
+          localStorage.setItem("ceebank:user", JSON.stringify(merged));
+
+          if (data2.accessToken || data2.refreshToken) {
+            localStorage.setItem(
+              "ceebank:auth",
+              JSON.stringify({
+                accessToken: data2.accessToken,
+                refreshToken: data2.refreshToken,
+                staySignedIn,
+              })
+            );
+          }
+        }
+      } catch {
+        // If login fails silently, we still continue to dashboard with the saved profile.
+      }
+
+      // 3) Redirect
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError("A network or server error occurred. Please try again.");
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
-    <main className="min-h-[calc(100vh-64px)] bg-[#F7FAFC] text-slate-800 grid place-items-center">
-      <form onSubmit={submit} className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
-        <h1 className="text-2xl font-semibold">Create account</h1>
+    <div className="max-w-lg mx-auto px-4 py-8">
+      <h1 className="text-2xl font-semibold text-gray-900">Create Account</h1>
+      <p className="mt-1 text-sm text-gray-600">
+        Open an account to access transfers, bill payments, cards, and more.
+      </p>
 
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+      {successMsg && (
+        <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {successMsg}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {/* Name */}
         <div>
-          <label className="block text-sm mb-1">Full name</label>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-800">
+            Full Name
+          </label>
           <input
-            className="w-full rounded-md bg-white border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200"
+            id="name"
+            type="text"
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Cynthia Ud ie"
-            required
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Cynthia Ud..."
           />
         </div>
 
+        {/* Email */}
         <div>
-          <label className="block text-sm mb-1">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-800">
+            Email Address
+          </label>
           <input
+            id="email"
             type="email"
-            className="w-full rounded-md bg-white border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="you@example.com"
-            required
           />
         </div>
 
+        {/* Password */}
         <div>
-          <label className="block text-sm mb-1">Password</label>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-800">
+            Password
+          </label>
           <input
+            id="password"
             type="password"
-            className="w-full rounded-md bg-white border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Strong password"
-            required
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter a secure password"
           />
         </div>
 
+        {/* PIN */}
         <div>
-          <label className="block text-sm mb-1">4-digit PIN</label>
+          <label htmlFor="pin" className="block text-sm font-medium text-gray-800">
+            4-Digit PIN
+          </label>
           <input
-            type="password"
+            id="pin"
             inputMode="numeric"
             pattern="\d{4}"
             maxLength={4}
-            className="w-full rounded-md bg-white border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200"
             value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="****"
-            required
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-widest"
+            placeholder="••••"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            You’ll use this PIN to authorize transfers.
+          </p>
         </div>
 
-        <label className="flex items-start gap-2 text-xs text-slate-700">
+        {/* Stay signed in (tight) */}
+        <div className="flex items-start gap-2">
           <input
+            id="stay"
             type="checkbox"
-            className="mt-1 h-4 w-4 accent-sky-600"
-            checked={agree}
-            onChange={(e) => setAgree(e.target.checked)}
-            required
+            checked={staySignedIn}
+            onChange={(e) => setStaySignedIn(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span>
-            By creating an account, you agree to our{" "}
-            <a className="underline" href="/terms">Terms of Service</a> and{" "}
-            <a className="underline" href="/privacy">Privacy Policy</a>.
-          </span>
-        </label>
+          <label htmlFor="stay" className="text-sm text-gray-700 select-none">
+            Stay signed in for 30 days
+          </label>
+        </div>
 
-        {error && <p className="text-rose-600">{error}</p>}
-
+        {/* Submit */}
         <button
-          disabled={busy}
-          className="w-full rounded-md bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-60 px-4 py-2 font-medium"
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
         >
-          {busy ? "Creating..." : "Create account"}
+          {submitting ? "Creating account…" : "Create Account"}
         </button>
 
-        <p className="text-sm text-slate-600">
-          Already have an account? <Link to="/login" className="text-sky-600 hover:underline">Sign in</Link>
+        {/* Terms (tight) */}
+        <p className="text-xs text-gray-500">
+          By creating an account, you agree to our{" "}
+          <a href="#" className="text-blue-700 hover:underline">Terms of Service</a>{" "}
+          and{" "}
+          <a href="#" className="text-blue-700 hover:underline">Privacy Policy</a>.
+        </p>
+
+        {/* Sign-in link */}
+        <p className="text-sm text-gray-700">
+          Already have an account?{" "}
+          <Link to="/login" className="text-blue-700 hover:underline">
+            Sign in
+          </Link>
         </p>
       </form>
-    </main>
+    </div>
   );
 }
